@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --muted: #737373;
+  --border: #e5e5e5;
+  --card: #ffffff;
+  --ring: rgba(10, 10, 10, 0.12);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+}
+
+/* In-app links: bold/semibold, clear underline for clicks & URLs */
+.app-link {
+  font-weight: 600;
+  color: #0a0a0a;
+  text-decoration: underline;
+  text-decoration-color: #a3a3a3;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s ease, color 0.15s ease;
+}
+
+.app-link:hover {
+  color: #000000;
+  text-decoration-color: #0a0a0a;
+}
+
+/* External / raw URLs in content */
+a.url-link {
+  font-weight: 600;
+  color: #0a0a0a;
+  text-decoration: underline;
+  text-decoration-color: #d4d4d4;
+  text-underline-offset: 3px;
+  word-break: break-all;
+}
+
+a.url-link:hover {
+  text-decoration-color: #0a0a0a;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.45s ease-out forwards;
+}
