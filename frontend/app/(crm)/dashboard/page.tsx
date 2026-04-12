@@ -23,13 +23,13 @@ export default function DashboardPage() {
 
   const load = useCallback(async () => {
     try {
-      const [s, leads, profile] = await Promise.all([
+      const [s, listRes, profile] = await Promise.all([
         leadsApi.stats(),
-        leadsApi.list(),
+        leadsApi.list({ limit: 8 }),
         usersApi.me(),
       ]);
       setStats(s);
-      setRecent(leads.slice(0, 8));
+      setRecent(listRes.items);
       setMe(profile);
       setErr("");
     } catch (e) {
@@ -42,8 +42,6 @@ export default function DashboardPage() {
     const t = setInterval(load, 30000);
     return () => clearInterval(t);
   }, [load]);
-
-  const followUpsDue = stats?.status_summary?.["follow-up"] ?? 0;
 
   const statStyles = [
     { color: "#0a0a0a" },
@@ -95,8 +93,8 @@ export default function DashboardPage() {
         {[
           { label: "Total leads", value: stats?.total_leads ?? "—" },
           { label: "Converted", value: stats?.converted ?? "—" },
-          { label: "In follow-up", value: followUpsDue },
-          { label: "New", value: stats?.status_summary?.["new"] ?? "—" },
+          { label: "Follow-ups today", value: stats?.followups_today ?? "—" },
+          { label: "Overdue", value: stats?.overdue ?? "—" },
         ].map((s, i) => (
           <div
             key={s.label}

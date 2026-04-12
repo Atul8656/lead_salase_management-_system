@@ -1,5 +1,5 @@
-from pydantic import BaseModel, EmailStr
-from typing import Optional
+from pydantic import BaseModel, EmailStr, Field
+from typing import List, Optional
 from datetime import datetime
 from models.lead import LeadStatus, LeadType
 
@@ -24,7 +24,9 @@ class LeadBase(BaseModel):
     follow_up_date: Optional[datetime] = None
 
 class LeadCreate(LeadBase):
-    """assigned_to defaults to creator when omitted."""
+    """assigned_to defaults to creator when omitted. Phone is required."""
+
+    phone: str = Field(..., min_length=5, max_length=40)
     assigned_to: Optional[int] = None
 
 class LeadUpdate(BaseModel):
@@ -70,3 +72,8 @@ class PipelineMove(BaseModel):
     follow_up_date: Optional[datetime] = None
     payment_amount: Optional[float] = None
     payment_method: Optional[str] = None
+
+
+class LeadListOut(BaseModel):
+    items: List[Lead]
+    total: int

@@ -24,7 +24,7 @@ def get_dashboard_summary(db: Session):
     active_agents = db.query(User).filter(User.is_active == True).count()
 
     won = leads_by_status_dict.get(LeadStatus.CONVERTED.value, 0)
-    lost = leads_by_status_dict.get(LeadStatus.NOT_INTERESTED.value, 0)
+    lost = leads_by_status_dict.get(LeadStatus.LOST.value, 0)
     total_closed = won + lost
     conversion_rate = (won / total_closed * 100) if total_closed > 0 else 0
 

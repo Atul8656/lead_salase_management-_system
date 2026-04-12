@@ -13,6 +13,15 @@ router = APIRouter()
 def read_users_me(current_user: User = Depends(get_current_user)):
     return current_user
 
+
+@router.patch("/me", response_model=user_schema.UserPublic)
+def patch_users_me(
+    body: user_schema.UserMeUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return user_service.update_current_user(db, current_user, body)
+
 @router.get("/assignees", response_model=List[user_schema.UserPublic])
 def list_assignees(
     db: Session = Depends(get_db),

@@ -1,16 +1,26 @@
-# Lead & Sales Management System
+# Lead Sales Management System
 
-Lead and sales management software.
+Full-stack CRM system built with:
 
-## GitLab — first push
+- Frontend: Next.js
+- Backend: FastAPI
+- Database: Supabase
 
-If you are connecting this folder to the GitLab project:
+## Features
+- Lead Management
+- Sales Pipeline
+- Follow-ups
+- Team Management
 
-```bash
-cd existing_repo
-git remote add origin https://gitlab.com/atulbaraiya0/lead-salal-management.git
-git branch -M main
-git push -uf origin main
-```
+## Setup
 
-- [Project integrations](https://gitlab.com/atulbaraiya0/lead-salal-management/-/settings/integrations)
+### Frontend
+cd frontend
+npm install
+npm run dev
+
+### Backend
+cd backend
+venv\Scripts\activate
+pip install -r requirements.txt
+python -m uvicorn main:app --reload

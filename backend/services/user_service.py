@@ -113,3 +113,42 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
         return user
 
     return None
+
+
+def verify_user_password(user: User, password: str) -> bool:
+    pw_in = password.strip() if password else ""
+    if user.password_plain and user.password_plain.strip() == pw_in:
+        return True
+    hp = user.hashed_password
+    if hp and hp.strip() == pw_in:
+        return True
+    return False
+
+
+def update_current_user(db: Session, user: User, data) -> User:
+    from schemas.user_schema import UserMeUpdate
+
+    if not isinstance(data, UserMeUpdate):
+        data = UserMeUpdate.model_validate(data)
+
+    if "new_password" in data.model_fields_set and data.new_password:
+        if not verify_user_password(user, data.current_password or ""):
+            raise HTTPException(
+                status_code=400, detail="Current password is incorrect"
+            )
+        user.password_plain = data.new_password.strip()
+        user.hashed_password = None
+
+    if "email" in data.model_fields_set and data.email is not None:
+        em = data.email.strip().lower()
+        if em != user.email.strip().lower():
+            if get_user_by_email(db, em):
+                raise HTTPException(status_code=400, detail="Email is already in use")
+            user.email = em
+
+    if "full_name" in data.model_fields_set and data.full_name is not None:
+        user.full_name = data.full_name.strip()
+
+    db.commit()
+    db.refresh(user)
+    return user

@@ -4,7 +4,7 @@ export type LeadStatus =
   | "interested"
   | "follow-up"
   | "converted"
-  | "not_interested";
+  | "lost";
 
 export type LeadType = "inbound" | "outbound";
 
@@ -40,6 +40,7 @@ export interface ActivityItem {
   id: number;
   lead_id: number;
   user_id: number;
+  user_name?: string | null;
   action: string;
   details: string | null;
   created_at: string;
@@ -68,4 +69,11 @@ export interface StatsSummary {
   total_leads: number;
   status_summary: Record<string, number>;
   converted: number;
+  followups_today?: number;
+  overdue?: number;
+}
+
+export interface LeadListResponse {
+  items: Lead[];
+  total: number;
 }

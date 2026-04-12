@@ -7,7 +7,7 @@ const styles: Record<LeadStatus, string> = {
   interested: "border border-neutral-300 bg-neutral-100 text-neutral-900",
   "follow-up": "border border-neutral-400 bg-white text-neutral-900",
   converted: "border border-neutral-900 bg-neutral-900 text-white",
-  not_interested: "border border-neutral-300 bg-neutral-50 text-neutral-700",
+  lost: "border border-neutral-400 bg-neutral-100 text-neutral-700",
 };
 
 export function StatusBadge({ status }: { status: LeadStatus }) {

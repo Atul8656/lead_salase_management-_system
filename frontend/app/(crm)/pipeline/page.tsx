@@ -11,7 +11,8 @@ export default function PipelinePage() {
 
   const load = useCallback(async () => {
     try {
-      setLeads(await leadsApi.list());
+      const res = await leadsApi.list({ limit: 500 });
+      setLeads(res.items);
       setErr("");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to load");

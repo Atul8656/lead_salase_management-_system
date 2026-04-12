@@ -7,6 +7,7 @@ class ActivityRead(BaseModel):
     id: int
     lead_id: int
     user_id: int
+    user_name: Optional[str] = None
     action: str
     details: Optional[str] = None
     created_at: datetime

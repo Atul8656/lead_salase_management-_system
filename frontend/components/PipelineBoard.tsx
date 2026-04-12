@@ -23,7 +23,7 @@ const COLUMNS: { id: LeadStatus; title: string }[] = [
   { id: "interested", title: "Interested" },
   { id: "follow-up", title: "Follow-up" },
   { id: "converted", title: "Converted" },
-  { id: "not_interested", title: "Not interested" },
+  { id: "lost", title: "Lost" },
 ];
 
 function DroppableCol({

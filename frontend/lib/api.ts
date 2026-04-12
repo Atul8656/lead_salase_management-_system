@@ -1,4 +1,41 @@
-import type { ActivityItem, FollowUp, Lead, StatsSummary, User } from "./types";
+import type {
+  ActivityItem,
+  FollowUp,
+  Lead,
+  LeadListResponse,
+  StatsSummary,
+  User,
+} from "./types";
+
+export type LeadListParams = {
+  skip?: number;
+  limit?: number;
+  q?: string;
+  status?: string;
+  assigned_to?: number;
+  lead_type?: string;
+  created_from?: string;
+  created_to?: string;
+  overdue_only?: boolean;
+  follow_up_today?: boolean;
+};
+
+function buildLeadQuery(params?: LeadListParams): string {
+  if (!params) return "";
+  const sp = new URLSearchParams();
+  (Object.entries(params) as [string, string | number | boolean | undefined][]).forEach(
+    ([k, v]) => {
+      if (v === undefined || v === "") return;
+      if (typeof v === "boolean") {
+        if (v) sp.set(k, "true");
+        return;
+      }
+      sp.set(k, String(v));
+    }
+  );
+  const qs = sp.toString();
+  return qs ? `?${qs}` : "";
+}
 
 /**
  * If NEXT_PUBLIC_API_URL is set → call that host directly.
@@ -131,7 +168,8 @@ export async function registerRequest(payload: {
 }
 
 export const leadsApi = {
-  list: () => api<Lead[]>("/api/leads/"),
+  list: (params?: LeadListParams) =>
+    api<LeadListResponse>(`/api/leads/${buildLeadQuery(params)}`),
   get: (id: number) => api<Lead>(`/api/leads/${id}`),
   create: (body: Record<string, unknown>) =>
     api<Lead>("/api/leads/", { method: "POST", body: JSON.stringify(body) }),
@@ -147,10 +185,20 @@ export const leadsApi = {
     api<ActivityItem[]>(`/api/leads/${id}/activities`),
   stats: () => api<StatsSummary>("/api/leads/stats/summary"),
   overdue: () => api<Lead[]>("/api/leads/overdue"),
+  importFile: (file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return api<{ created: number; errors: string[] }>("/api/leads/import", {
+      method: "POST",
+      body: fd,
+    });
+  },
 };
 
 export const usersApi = {
   me: () => api<User>("/api/users/me"),
+  patchMe: (body: Record<string, unknown>) =>
+    api<User>("/api/users/me", { method: "PATCH", body: JSON.stringify(body) }),
   assignees: () => api<User[]>("/api/users/assignees"),
 };
 
@@ -174,6 +222,21 @@ export async function downloadLeadsCsv() {
   const a = document.createElement("a");
   a.href = url;
   a.download = "leads_export.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function downloadImportSampleCsv() {
+  const token = getToken();
+  const res = await safeFetch(apiUrl("/api/leads/import/sample"), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "leads_import_sample.csv";
   a.click();
   URL.revokeObjectURL(url);
 }

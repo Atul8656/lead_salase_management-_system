@@ -1,20 +1,20 @@
 import csv
+from datetime import datetime
 from io import StringIO
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func
-from typing import List
 
 from db.connection import get_db
-from models.lead import Lead, LeadStatus
-from schemas import lead_schema
-from schemas import activity_schema
-from services import lead_service
-from services import activity_service
 from middleware.auth_middleware import get_current_user
+from models.lead import LeadStatus, LeadType
 from models.user import User
+from schemas import activity_schema
+from schemas import lead_schema
+from services import activity_service
+from services import lead_service
 
 router = APIRouter()
 
@@ -34,17 +34,7 @@ def leads_stats_summary(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    total = db.query(Lead).count()
-    by_status = db.query(Lead.status, func.count(Lead.id)).group_by(Lead.status).all()
-    status_summary = {s.value: 0 for s in LeadStatus}
-    for st, cnt in by_status:
-        status_summary[st.value] = cnt
-    converted = status_summary.get(LeadStatus.CONVERTED.value, 0)
-    return {
-        "total_leads": total,
-        "status_summary": status_summary,
-        "converted": converted,
-    }
+    return lead_service.stats_for_user(db, current_user)
 
 
 @router.get("/export/csv")
@@ -52,7 +42,7 @@ def export_leads_csv(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    leads = lead_service.get_leads(db, skip=0, limit=10000)
+    leads = lead_service.get_leads(db, skip=0, limit=10000, user=current_user)
     buf = StringIO()
     fieldnames = [
         "id",
@@ -96,6 +86,30 @@ def export_leads_csv(
     )
 
 
+@router.get("/import/sample")
+def download_import_sample():
+    return Response(
+        content=lead_service.SAMPLE_CSV,
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": 'attachment; filename="leads_import_sample.csv"',
+        },
+    )
+
+
+@router.post("/import")
+async def import_leads(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    content = await file.read()
+    rows = lead_service.parse_import_file(content, file.filename or "upload.csv")
+    if not rows:
+        raise HTTPException(status_code=400, detail="No data rows found in file")
+    return lead_service.import_leads_from_rows(db, rows, current_user.id)
+
+
 @router.get("/overdue", response_model=List[lead_schema.Lead])
 def overdue_followups(
     skip: int = 0,
@@ -103,7 +117,7 @@ def overdue_followups(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return lead_service.get_overdue_leads(db, skip=skip, limit=limit)
+    return lead_service.get_overdue_leads(db, current_user, skip=skip, limit=limit)
 
 
 @router.post("", response_model=lead_schema.Lead)
@@ -116,15 +130,37 @@ def create_lead(
     return lead_service.create_lead(db=db, lead=lead, user_id=current_user.id)
 
 
-@router.get("", response_model=List[lead_schema.Lead])
-@router.get("/", response_model=List[lead_schema.Lead])
+@router.get("", response_model=lead_schema.LeadListOut)
+@router.get("/", response_model=lead_schema.LeadListOut)
 def read_leads(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    q: Optional[str] = None,
+    status: Optional[LeadStatus] = None,
+    assigned_to: Optional[int] = None,
+    lead_type: Optional[LeadType] = None,
+    created_from: Optional[datetime] = None,
+    created_to: Optional[datetime] = None,
+    overdue_only: bool = False,
+    follow_up_today: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return lead_service.get_leads(db, skip=skip, limit=limit)
+    items, total = lead_service.search_leads(
+        db,
+        current_user,
+        skip=skip,
+        limit=limit,
+        q=q,
+        status=status,
+        assigned_to=assigned_to,
+        lead_type=lead_type,
+        created_from=created_from,
+        created_to=created_to,
+        overdue_only=overdue_only,
+        follow_up_today=follow_up_today,
+    )
+    return lead_schema.LeadListOut(items=items, total=total)
 
 
 @router.patch("/{lead_id}", response_model=lead_schema.Lead)
@@ -134,6 +170,7 @@ def patch_lead(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    lead_service.get_lead_for_user(db, lead_id, current_user)
     updated = lead_service.update_lead(db, lead_id, lead_update, current_user.id)
     if updated is None:
         raise HTTPException(status_code=404, detail="Lead not found")
@@ -146,6 +183,7 @@ def remove_lead(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    lead_service.get_lead_for_user(db, lead_id, current_user)
     ok = lead_service.delete_lead(db, lead_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Lead not found")
@@ -159,6 +197,7 @@ def pipeline_move(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    lead_service.get_lead_for_user(db, lead_id, current_user)
     result = lead_service.move_lead_pipeline(db, lead_id, move, current_user.id)
     if result is None:
         raise HTTPException(status_code=404, detail="Lead not found")
@@ -171,9 +210,20 @@ def lead_activities(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if lead_service.get_lead(db, lead_id) is None:
-        raise HTTPException(status_code=404, detail="Lead not found")
-    return activity_service.get_lead_activities(db, lead_id)
+    lead_service.get_lead_for_user(db, lead_id, current_user)
+    rows = activity_service.get_lead_activities(db, lead_id, limit=20)
+    return [
+        activity_schema.ActivityRead(
+            id=a.id,
+            lead_id=a.lead_id,
+            user_id=a.user_id,
+            user_name=(a.user.full_name or a.user.email) if a.user else None,
+            action=a.action,
+            details=a.details,
+            created_at=a.created_at,
+        )
+        for a in rows
+    ]
 
 
 @router.get("/{lead_id}", response_model=lead_schema.Lead)
@@ -182,7 +232,4 @@ def read_lead(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    db_lead = lead_service.get_lead(db, lead_id=lead_id)
-    if db_lead is None:
-        raise HTTPException(status_code=404, detail="Lead not found")
-    return db_lead
+    return lead_service.get_lead_for_user(db, lead_id, current_user)

@@ -10,7 +10,7 @@ class LeadStatus(enum.Enum):
     INTERESTED = "interested"
     FOLLOW_UP = "follow-up"
     CONVERTED = "converted"
-    NOT_INTERESTED = "not_interested"
+    LOST = "lost"
 
 class LeadType(enum.Enum):
     INBOUND = "inbound"
@@ -30,10 +30,10 @@ class Lead(Base):
     
     source = Column(String) # e.g., Facebook, Google, Referral
     source_detail = Column(String)
-    lead_type = Column(Enum(LeadType), default=LeadType.INBOUND)
-    status = Column(Enum(LeadStatus), default=LeadStatus.NEW)
-    
-    assigned_to = Column(Integer, ForeignKey("users.id"))
+    lead_type = Column(Enum(LeadType), default=LeadType.INBOUND, index=True)
+    status = Column(Enum(LeadStatus), default=LeadStatus.NEW, index=True)
+
+    assigned_to = Column(Integer, ForeignKey("users.id"), index=True)
     
     interest = Column(String)
     budget = Column(String)

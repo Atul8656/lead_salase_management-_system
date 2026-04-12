@@ -12,14 +12,17 @@ const STATUSES: LeadStatus[] = [
   "interested",
   "follow-up",
   "converted",
-  "not_interested",
+  "lost",
 ];
+
+const STEPS = ["Basic info", "Sales", "Notes"];
 
 export default function NewLeadPage() {
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState(0);
 
   const [form, setForm] = useState({
     name: "",
@@ -50,15 +53,54 @@ export default function NewLeadPage() {
       .catch(() => setUsers([]));
   }, []);
 
+  function validateStep(s: number): boolean {
+    if (s === 0) {
+      if (!form.name.trim() || !form.phone.trim()) {
+        setErr("Name and phone are required.");
+        return false;
+      }
+    }
+    if (s === 1) {
+      if (form.status === "interested" && !form.follow_up_date) {
+        setErr("Follow-up date is required for Interested.");
+        return false;
+      }
+      if (
+        form.status === "converted" &&
+        (!form.payment_amount.trim() || !form.payment_method.trim())
+      ) {
+        setErr("Payment amount and method are required for Converted.");
+        return false;
+      }
+    }
+    setErr("");
+    return true;
+  }
+
+  function goNext() {
+    if (!validateStep(step)) return;
+    setStep((x) => Math.min(STEPS.length - 1, x + 1));
+  }
+
+  function goBack() {
+    setErr("");
+    setStep((x) => Math.max(0, x - 1));
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (step < STEPS.length - 1) {
+      goNext();
+      return;
+    }
+    if (!validateStep(0) || !validateStep(1)) return;
     setErr("");
     setLoading(true);
     try {
       const body: Record<string, unknown> = {
-        name: form.name,
+        name: form.name.trim(),
         email: form.email || null,
-        phone: form.phone || null,
+        phone: form.phone.trim(),
         company_name: form.company_name || null,
         website_url: form.website_url || null,
         linkedin_url: form.linkedin_url || null,
@@ -95,9 +137,17 @@ export default function NewLeadPage() {
         </Link>
         <h2 className="mt-4 text-2xl font-bold text-neutral-900">Add lead</h2>
         <p className="text-sm font-medium text-neutral-500">
-          Interested status requires a follow-up date. Converted requires payment
-          details.
+          Step {step + 1} of {STEPS.length}: {STEPS[step]} · phone is required. Interested
+          needs follow-up; converted needs payment.
         </p>
+        <div className="mt-4 flex gap-2">
+          {STEPS.map((label, i) => (
+            <div
+              key={label}
+              className={`h-1.5 flex-1 rounded-full ${i <= step ? "bg-neutral-900" : "bg-neutral-200"}`}
+            />
+          ))}
+        </div>
       </div>
 
       <form
@@ -110,157 +160,193 @@ export default function NewLeadPage() {
           </p>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            label="Name *"
-            value={form.name}
-            onChange={(v) => setForm((f) => ({ ...f, name: v }))}
-            required
-          />
-          <Field
-            label="Company"
-            value={form.company_name}
-            onChange={(v) => setForm((f) => ({ ...f, company_name: v }))}
-          />
-          <Field
-            label="Email"
-            type="email"
-            value={form.email}
-            onChange={(v) => setForm((f) => ({ ...f, email: v }))}
-          />
-          <Field
-            label="Phone"
-            value={form.phone}
-            onChange={(v) => setForm((f) => ({ ...f, phone: v }))}
-          />
-          <Field
-            label="Website"
-            value={form.website_url}
-            onChange={(v) => setForm((f) => ({ ...f, website_url: v }))}
-          />
-          <Field
-            label="LinkedIn"
-            value={form.linkedin_url}
-            onChange={(v) => setForm((f) => ({ ...f, linkedin_url: v }))}
-          />
-          <Field
-            label="Location"
-            value={form.location}
-            onChange={(v) => setForm((f) => ({ ...f, location: v }))}
-          />
-          <Field
-            label="Source"
-            value={form.source}
-            onChange={(v) => setForm((f) => ({ ...f, source: v }))}
-          />
-          <Field
-            label="Source detail"
-            value={form.source_detail}
-            onChange={(v) => setForm((f) => ({ ...f, source_detail: v }))}
-          />
-          <div>
-            <label className="block text-xs font-semibold text-neutral-700">Lead type</label>
-            <select
-              value={form.lead_type}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, lead_type: e.target.value as LeadType }))
-              }
-              className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
-            >
-              <option value="inbound">Inbound</option>
-              <option value="outbound">Outbound</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-neutral-700">Status</label>
-            <select
-              value={form.status}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, status: e.target.value as LeadStatus }))
-              }
-              className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
-            >
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-neutral-700">Assigned to</label>
-            <select
-              value={form.assigned_to}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, assigned_to: e.target.value }))
-              }
-              className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
-            >
-              <option value="">Default (me)</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.full_name} · {u.login_id} ({u.email})
-                </option>
-              ))}
-            </select>
-          </div>
-          <Field
-            label="Interest"
-            value={form.interest}
-            onChange={(v) => setForm((f) => ({ ...f, interest: v }))}
-          />
-          <Field
-            label="Budget"
-            value={form.budget}
-            onChange={(v) => setForm((f) => ({ ...f, budget: v }))}
-          />
-          <Field
-            label="Timeline"
-            value={form.timeline}
-            onChange={(v) => setForm((f) => ({ ...f, timeline: v }))}
-          />
-          <div>
-            <label className="block text-xs font-semibold text-neutral-700">
-              Follow-up date / time
-            </label>
-            <input
-              type="datetime-local"
-              value={form.follow_up_date}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, follow_up_date: e.target.value }))
-              }
-              className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
+        {step === 0 && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              label="Name *"
+              value={form.name}
+              onChange={(v) => setForm((f) => ({ ...f, name: v }))}
+              required
+            />
+            <Field
+              label="Phone *"
+              value={form.phone}
+              onChange={(v) => setForm((f) => ({ ...f, phone: v }))}
+              required
+            />
+            <Field
+              label="Email"
+              type="email"
+              value={form.email}
+              onChange={(v) => setForm((f) => ({ ...f, email: v }))}
+            />
+            <Field
+              label="Company"
+              value={form.company_name}
+              onChange={(v) => setForm((f) => ({ ...f, company_name: v }))}
+            />
+            <Field
+              label="Location"
+              value={form.location}
+              onChange={(v) => setForm((f) => ({ ...f, location: v }))}
+            />
+            <Field
+              label="Website"
+              value={form.website_url}
+              onChange={(v) => setForm((f) => ({ ...f, website_url: v }))}
+            />
+            <Field
+              label="LinkedIn"
+              value={form.linkedin_url}
+              onChange={(v) => setForm((f) => ({ ...f, linkedin_url: v }))}
             />
           </div>
-          <Field
-            label="Payment amount (if converted)"
-            value={form.payment_amount}
-            onChange={(v) => setForm((f) => ({ ...f, payment_amount: v }))}
-          />
-          <Field
-            label="Payment method (if converted)"
-            value={form.payment_method}
-            onChange={(v) => setForm((f) => ({ ...f, payment_method: v }))}
-          />
-        </div>
+        )}
 
-        <div>
-          <label className="block text-xs font-semibold text-neutral-700">Notes</label>
-          <textarea
-            rows={4}
-            value={form.notes}
-            onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
-          />
-        </div>
+        {step === 1 && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700">Source</label>
+              <select
+                value={form.source}
+                onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))}
+                className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
+              >
+                <option value="">Select…</option>
+                <option value="facebook">Facebook</option>
+                <option value="website">Website</option>
+                <option value="referral">Referral</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <Field
+              label="Source detail"
+              value={form.source_detail}
+              onChange={(v) => setForm((f) => ({ ...f, source_detail: v }))}
+            />
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700">Lead type</label>
+              <select
+                value={form.lead_type}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, lead_type: e.target.value as LeadType }))
+                }
+                className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
+              >
+                <option value="inbound">Inbound</option>
+                <option value="outbound">Outbound</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700">Status</label>
+              <select
+                value={form.status}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, status: e.target.value as LeadStatus }))
+                }
+                className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
+              >
+                {STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700">Assigned to</label>
+              <select
+                value={form.assigned_to}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, assigned_to: e.target.value }))
+                }
+                className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
+              >
+                <option value="">Default (me)</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.full_name} · {u.login_id} ({u.email})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-neutral-700">
+                Follow-up date / time
+              </label>
+              <input
+                type="datetime-local"
+                value={form.follow_up_date}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, follow_up_date: e.target.value }))
+                }
+                className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
+              />
+            </div>
+            <Field
+              label="Payment amount (if converted)"
+              value={form.payment_amount}
+              onChange={(v) => setForm((f) => ({ ...f, payment_amount: v }))}
+            />
+            <Field
+              label="Payment method (if converted)"
+              value={form.payment_method}
+              onChange={(v) => setForm((f) => ({ ...f, payment_method: v }))}
+            />
+          </div>
+        )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-xl bg-neutral-900 py-3 font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
-        >
-          {loading ? "Saving…" : "Create lead"}
-        </button>
+        {step === 2 && (
+          <div className="space-y-4">
+            <Field
+              label="Interest"
+              value={form.interest}
+              onChange={(v) => setForm((f) => ({ ...f, interest: v }))}
+            />
+            <Field
+              label="Budget"
+              value={form.budget}
+              onChange={(v) => setForm((f) => ({ ...f, budget: v }))}
+            />
+            <Field
+              label="Timeline"
+              value={form.timeline}
+              onChange={(v) => setForm((f) => ({ ...f, timeline: v }))}
+            />
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700">Notes</label>
+              <textarea
+                rows={4}
+                value={form.notes}
+                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          {step > 0 && (
+            <button
+              type="button"
+              onClick={goBack}
+              className="rounded-xl border border-neutral-300 px-4 py-3 text-sm font-semibold text-neutral-800 hover:bg-neutral-50"
+            >
+              Back
+            </button>
+          )}
+          <button
+            type="submit"
+            disabled={loading}
+            className="min-w-[160px] flex-1 rounded-xl bg-neutral-900 py-3 font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+          >
+            {loading
+              ? "Saving…"
+              : step < STEPS.length - 1
+                ? "Continue"
+                : "Create lead"}
+          </button>
+        </div>
       </form>
     </div>
   );
