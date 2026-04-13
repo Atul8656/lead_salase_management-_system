@@ -1,7 +1,9 @@
-from pydantic import BaseModel, EmailStr, Field
-from typing import List, Optional
+from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
+from typing import List, Optional, Literal
 from datetime import datetime
 from models.lead import LeadStatus, LeadType
+
+LeadPriorityOpt = Optional[Literal["hot", "warm", "cold"]]
 
 class LeadBase(BaseModel):
     name: str
@@ -18,7 +20,9 @@ class LeadBase(BaseModel):
     interest: Optional[str] = None
     budget: Optional[str] = None
     timeline: Optional[str] = None
+    description: Optional[str] = None
     notes: Optional[str] = None
+    priority: LeadPriorityOpt = None
     payment_amount: float = 0.0
     payment_method: Optional[str] = None
     follow_up_date: Optional[datetime] = None
@@ -52,6 +56,15 @@ class LeadUpdate(BaseModel):
     follow_up_date: Optional[datetime] = None
     last_contacted: Optional[datetime] = None
     notes: Optional[str] = None
+    description: Optional[str] = None
+    priority: LeadPriorityOpt = None
+
+    @field_validator("priority", mode="before")
+    @classmethod
+    def empty_priority(cls, v):
+        if v == "" or v is None:
+            return None
+        return v
 
 class Lead(LeadBase):
     id: int
@@ -77,3 +90,18 @@ class PipelineMove(BaseModel):
 class LeadListOut(BaseModel):
     items: List[Lead]
     total: int
+
+
+class LeadRemarkCreate(BaseModel):
+    body: str = Field(..., min_length=1, max_length=20000)
+
+
+class LeadRemarkOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    lead_id: int
+    user_id: int
+    user_name: Optional[str] = None
+    body: str
+    created_at: datetime

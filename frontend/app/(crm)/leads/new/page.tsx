@@ -6,6 +6,10 @@ import Link from "next/link";
 import { leadsApi, usersApi } from "@/lib/api";
 import type { LeadStatus, LeadType, User } from "@/lib/types";
 
+function memberLabel(u: User) {
+  return u.member_id ?? u.login_id ?? `M${String(u.id).padStart(3, "0")}`;
+}
+
 const STATUSES: LeadStatus[] = [
   "new",
   "contacted",
@@ -15,7 +19,7 @@ const STATUSES: LeadStatus[] = [
   "lost",
 ];
 
-const STEPS = ["Basic info", "Sales", "Notes"];
+const STEPS = ["Basic info", "Sales", "Remarks"];
 
 export default function NewLeadPage() {
   const router = useRouter();
@@ -41,9 +45,11 @@ export default function NewLeadPage() {
     budget: "",
     timeline: "",
     notes: "",
+    description: "",
     payment_amount: "",
     payment_method: "",
     follow_up_date: "",
+    priority: "" as "" | "hot" | "warm" | "cold",
   });
 
   useEffect(() => {
@@ -51,6 +57,14 @@ export default function NewLeadPage() {
       .assignees()
       .then(setUsers)
       .catch(() => setUsers([]));
+    usersApi
+      .me()
+      .then((me) =>
+        setForm((f) =>
+          f.assigned_to === "" ? { ...f, assigned_to: String(me.id) } : f
+        )
+      )
+      .catch(() => {});
   }, []);
 
   function validateStep(s: number): boolean {
@@ -61,6 +75,10 @@ export default function NewLeadPage() {
       }
     }
     if (s === 1) {
+      if (!form.assigned_to) {
+        setErr("Assign this lead to a team member.");
+        return false;
+      }
       if (form.status === "interested" && !form.follow_up_date) {
         setErr("Follow-up date is required for Interested.");
         return false;
@@ -113,10 +131,12 @@ export default function NewLeadPage() {
         budget: form.budget || null,
         timeline: form.timeline || null,
         notes: form.notes || null,
+        description: form.description.trim() || null,
+        priority: form.priority || null,
         payment_amount: form.payment_amount ? parseFloat(form.payment_amount) : 0,
         payment_method: form.payment_method || null,
       };
-      if (form.assigned_to) body.assigned_to = parseInt(form.assigned_to, 10);
+      body.assigned_to = parseInt(form.assigned_to, 10);
       if (form.follow_up_date)
         body.follow_up_date = new Date(form.follow_up_date).toISOString();
 
@@ -200,6 +220,20 @@ export default function NewLeadPage() {
               value={form.linkedin_url}
               onChange={(v) => setForm((f) => ({ ...f, linkedin_url: v }))}
             />
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-neutral-700">
+                Description / requirements
+              </label>
+              <textarea
+                rows={3}
+                value={form.description}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, description: e.target.value }))
+                }
+                placeholder="What does this lead need? Products, budget context, timeline…"
+                className="mt-1 min-h-[4.5rem] w-full resize-y rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
+              />
+            </div>
           </div>
         )}
 
@@ -210,7 +244,7 @@ export default function NewLeadPage() {
               <select
                 value={form.source}
                 onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))}
-                className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
+                className="app-select mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
               >
                 <option value="">Select…</option>
                 <option value="facebook">Facebook</option>
@@ -231,7 +265,7 @@ export default function NewLeadPage() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, lead_type: e.target.value as LeadType }))
                 }
-                className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
+                className="app-select mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
               >
                 <option value="inbound">Inbound</option>
                 <option value="outbound">Outbound</option>
@@ -244,7 +278,7 @@ export default function NewLeadPage() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, status: e.target.value as LeadStatus }))
                 }
-                className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
+                className="app-select mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
               >
                 {STATUSES.map((s) => (
                   <option key={s} value={s}>
@@ -254,18 +288,36 @@ export default function NewLeadPage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-neutral-700">Assigned to</label>
+              <label className="block text-xs font-semibold text-neutral-700">Priority</label>
               <select
+                value={form.priority}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    priority: e.target.value as typeof form.priority,
+                  }))
+                }
+                className="app-select mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
+              >
+                <option value="">None</option>
+                <option value="hot">Hot</option>
+                <option value="warm">Warm</option>
+                <option value="cold">Cold</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700">Assigned to *</label>
+              <select
+                required
                 value={form.assigned_to}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, assigned_to: e.target.value }))
                 }
-                className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
+                className="app-select mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
               >
-                <option value="">Default (me)</option>
                 {users.map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.full_name} · {u.login_id} ({u.email})
+                    {u.full_name} · {memberLabel(u)} ({u.email})
                   </option>
                 ))}
               </select>
@@ -314,7 +366,7 @@ export default function NewLeadPage() {
               onChange={(v) => setForm((f) => ({ ...f, timeline: v }))}
             />
             <div>
-              <label className="block text-xs font-semibold text-neutral-700">Notes</label>
+              <label className="block text-xs font-semibold text-neutral-700">Remarks</label>
               <textarea
                 rows={4}
                 value={form.notes}

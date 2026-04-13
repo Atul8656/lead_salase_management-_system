@@ -32,8 +32,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm">
         <h1 className="text-center text-2xl font-bold text-neutral-900">Sign in</h1>
         <p className="mt-2 text-center text-sm font-medium text-neutral-600">
-          Use the same <strong className="font-semibold text-neutral-900">email</strong> and plain-text{" "}
-          <strong className="font-semibold text-neutral-900">password</strong> as in your database.
+          Sign in with the email and password for your account.
         </p>
         <form onSubmit={onSubmit} className="mt-8 space-y-4">
           <div>
@@ -56,7 +55,7 @@ export default function LoginPage() {
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Must match your database password"
+              placeholder="Your password"
               className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 outline-none focus:border-neutral-900"
             />
           </div>

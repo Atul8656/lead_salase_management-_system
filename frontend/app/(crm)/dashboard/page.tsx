@@ -3,45 +3,92 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { downloadLeadsCsv, leadsApi, usersApi } from "@/lib/api";
-import type { Lead, StatsSummary, User } from "@/lib/types";
+import type { Lead, LeadListParams, StatsSummary, User } from "@/lib/types";
+import { localTodayYMD } from "@/lib/formatDate";
 import { StatusBadge } from "@/components/StatusBadge";
+import { formatAppDateTime } from "@/lib/formatDate";
+import LeadsPanelModal from "@/components/LeadsPanelModal";
 
-function timeAgo(iso: string) {
-  const d = new Date(iso).getTime();
-  const s = Math.floor((Date.now() - d) / 1000);
-  if (s < 60) return `${s}s ago`;
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
+function memberLabel(u: { member_id?: string; id: number }) {
+  return u.member_id ?? `M${String(u.id).padStart(3, "0")}`;
 }
+
+type StatModal = null | "all" | "converted" | "followups_today" | "overdue";
+
+const MODAL_FETCH_LIMIT = 1000;
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<StatsSummary | null>(null);
   const [recent, setRecent] = useState<Lead[]>([]);
   const [me, setMe] = useState<User | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
   const [err, setErr] = useState("");
+  const [modal, setModal] = useState<StatModal>(null);
+  const [modalLeads, setModalLeads] = useState<Lead[]>([]);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [modalErr, setModalErr] = useState("");
 
   const load = useCallback(async () => {
     try {
-      const [s, listRes, profile] = await Promise.all([
+      const [s, listRes, profile, assignees] = await Promise.all([
         leadsApi.stats(),
         leadsApi.list({ limit: 8 }),
         usersApi.me(),
+        usersApi.assignees(),
       ]);
       setStats(s);
       setRecent(listRes.items);
       setMe(profile);
+      setUsers(assignees);
       setErr("");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to load");
     }
   }, []);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- initial load + polling */
   useEffect(() => {
     load();
     const t = setInterval(load, 30000);
     return () => clearInterval(t);
   }, [load]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  function closeStatModal() {
+    setModal(null);
+    setModalLeads([]);
+    setModalErr("");
+    setModalLoading(false);
+  }
+
+  /* eslint-disable react-hooks/set-state-in-effect -- modal fetch lifecycle */
+  useEffect(() => {
+    if (!modal) return;
+    let cancelled = false;
+    const params: LeadListParams = { skip: 0, limit: MODAL_FETCH_LIMIT };
+    if (modal === "converted") params.status = "converted";
+    if (modal === "followups_today") params.follow_up_on = localTodayYMD();
+    if (modal === "overdue") params.overdue_only = true;
+
+    setModalLoading(true);
+    setModalErr("");
+    leadsApi
+      .list(params)
+      .then((res) => {
+        if (!cancelled) setModalLeads(res.items);
+      })
+      .catch((e) => {
+        if (!cancelled)
+          setModalErr(e instanceof Error ? e.message : "Failed to load leads");
+      })
+      .finally(() => {
+        if (!cancelled) setModalLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [modal]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const statStyles = [
     { color: "#0a0a0a" },
@@ -50,8 +97,37 @@ export default function DashboardPage() {
     { color: "#a3a3a3" },
   ];
 
+  const statCards: {
+    label: string;
+    value: string | number;
+    key: StatModal;
+    title: string;
+  }[] = [
+    { label: "Total leads", value: stats?.total_leads ?? "—", key: "all", title: "All leads" },
+    { label: "Converted", value: stats?.converted ?? "—", key: "converted", title: "Converted leads" },
+    {
+      label: "Follow-ups today",
+      value: stats?.followups_today ?? "—",
+      key: "followups_today",
+      title: "Follow-ups due today",
+    },
+    { label: "Overdue", value: stats?.overdue ?? "—", key: "overdue", title: "Overdue follow-ups" },
+  ];
+
+  const modalTitle = statCards.find((c) => c.key === modal)?.title ?? "Leads";
+
   return (
     <div className="mx-auto max-w-6xl space-y-8 animate-fade-in">
+      <LeadsPanelModal
+        title={modalTitle}
+        open={modal !== null}
+        onClose={closeStatModal}
+        items={modalLeads}
+        users={users}
+        loading={modalLoading}
+        err={modalErr}
+      />
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-neutral-900">Dashboard</h2>
@@ -59,7 +135,7 @@ export default function DashboardPage() {
             <p className="mt-1 text-sm font-medium text-neutral-600">
               Signed in as <span className="font-semibold text-neutral-900">{me.full_name}</span>
               <span className="text-neutral-500"> · {me.email}</span>
-              {me.login_id ? <span className="text-neutral-500"> · {me.login_id}</span> : null}
+              <span className="text-neutral-500"> · {memberLabel(me)}</span>
             </p>
           )}
           <p className="mt-1 text-sm font-medium text-neutral-500">
@@ -90,15 +166,16 @@ export default function DashboardPage() {
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: "Total leads", value: stats?.total_leads ?? "—" },
-          { label: "Converted", value: stats?.converted ?? "—" },
-          { label: "Follow-ups today", value: stats?.followups_today ?? "—" },
-          { label: "Overdue", value: stats?.overdue ?? "—" },
-        ].map((s, i) => (
-          <div
+        {statCards.map((s, i) => (
+          <button
             key={s.label}
-            className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
+            type="button"
+            onClick={() => {
+              setModalLeads([]);
+              setModalErr("");
+              setModal(s.key);
+            }}
+            className="cursor-pointer rounded-2xl border border-neutral-200 bg-white p-6 text-left shadow-sm transition hover:border-neutral-400 hover:shadow-md focus-visible:outline focus-visible:ring-2 focus-visible:ring-neutral-900"
           >
             <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">{s.label}</p>
             <p className="mt-2 text-3xl font-bold text-neutral-900">{s.value}</p>
@@ -108,7 +185,7 @@ export default function DashboardPage() {
                 style={{ width: "65%", backgroundColor: statStyles[i].color }}
               />
             </div>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -142,7 +219,7 @@ export default function DashboardPage() {
                       <StatusBadge status={lead.status} />
                     </td>
                     <td className="px-6 py-3 text-right font-medium text-neutral-500">
-                      {timeAgo(lead.updated_at || lead.created_at)}
+                      {formatAppDateTime(lead.updated_at || lead.created_at)}
                     </td>
                   </tr>
                 ))}

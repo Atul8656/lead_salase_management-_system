@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { followupsApi, leadsApi } from "@/lib/api";
 import type { FollowUp, Lead } from "@/lib/types";
+import { formatAppDateTime } from "@/lib/formatDate";
 
 export default function FollowUpsPage() {
   const [overdue, setOverdue] = useState<Lead[]>([]);
@@ -132,7 +133,7 @@ export default function FollowUpsPage() {
               className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 pb-3"
             >
               <span className="font-medium text-neutral-700">
-                Lead #{f.lead_id} · {new Date(f.scheduled_at).toLocaleString()}
+                Lead #{f.lead_id} · {formatAppDateTime(new Date(f.scheduled_at))}
               </span>
               <Link href={`/leads/${f.lead_id}`} className="app-link">
                 View lead

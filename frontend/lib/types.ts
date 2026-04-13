@@ -8,6 +8,8 @@ export type LeadStatus =
 
 export type LeadType = "inbound" | "outbound";
 
+export type LeadPriority = "hot" | "warm" | "cold";
+
 export interface Lead {
   id: number;
   name: string;
@@ -25,7 +27,9 @@ export interface Lead {
   interest: string | null;
   budget: string | null;
   timeline: string | null;
+  description: string | null;
   notes: string | null;
+  priority?: LeadPriority | null;
   payment_amount: number;
   payment_method: string | null;
   follow_up_date: string | null;
@@ -34,6 +38,15 @@ export interface Lead {
   converted_at: string | null;
   created_at: string;
   updated_at: string | null;
+}
+
+export interface LeadRemark {
+  id: number;
+  lead_id: number;
+  user_id: number;
+  user_name?: string | null;
+  body: string;
+  created_at: string;
 }
 
 export interface ActivityItem {
@@ -49,10 +62,23 @@ export interface ActivityItem {
 export interface User {
   id: number;
   login_id: string | null;
+  member_id?: string;
   email: string;
   full_name: string;
   role: string;
   is_active: boolean;
+  phone?: string | null;
+  /** Public image URL for profile avatar; optional. */
+  avatar_url?: string | null;
+  created_at?: string | null;
+}
+
+export interface MemberCreatedResponse extends User {
+  generated_password: string;
+}
+
+export interface NextMemberIdResponse {
+  next_member_id: string;
 }
 
 export interface FollowUp {

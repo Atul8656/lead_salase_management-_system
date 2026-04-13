@@ -23,7 +23,13 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_
         token_data = TokenData(email=email)
     except JWTError:
         raise credentials_exception
+
     user = user_service.get_user_by_email(db, email=token_data.email)
     if user is None:
-        raise credentials_exception
+        # Same status as invalid token: old session after DB reset, or deleted user.
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session is no longer valid. Please sign in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return user

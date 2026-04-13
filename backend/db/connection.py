@@ -6,6 +6,8 @@ from core.config import settings
 _connect_args = {}
 if "supabase" in (settings.DATABASE_URL or "").lower() or "sslmode=require" in (settings.DATABASE_URL or ""):
     _connect_args["sslmode"] = "require"
+    # Supabase pooler (pgbouncer transaction mode) is not compatible with psycopg prepared statements.
+    _connect_args["prepare_threshold"] = None
 
 engine = create_engine(
     settings.sqlalchemy_database_url,

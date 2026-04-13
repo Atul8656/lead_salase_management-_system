@@ -1,5 +1,5 @@
 import csv
-from datetime import datetime
+from datetime import datetime, date
 from io import StringIO
 from typing import List, Optional
 
@@ -61,6 +61,8 @@ def export_leads_csv(
         "interest",
         "budget",
         "timeline",
+        "description",
+        "priority",
         "follow_up_date",
         "last_contacted",
         "follow_up_count",
@@ -134,15 +136,16 @@ def create_lead(
 @router.get("/", response_model=lead_schema.LeadListOut)
 def read_leads(
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(50, ge=1, le=1000),
     q: Optional[str] = None,
     status: Optional[LeadStatus] = None,
     assigned_to: Optional[int] = None,
     lead_type: Optional[LeadType] = None,
+    source: Optional[str] = None,
     created_from: Optional[datetime] = None,
     created_to: Optional[datetime] = None,
     overdue_only: bool = False,
-    follow_up_today: bool = False,
+    follow_up_on: Optional[date] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -155,10 +158,11 @@ def read_leads(
         status=status,
         assigned_to=assigned_to,
         lead_type=lead_type,
+        source=source,
         created_from=created_from,
         created_to=created_to,
         overdue_only=overdue_only,
-        follow_up_today=follow_up_today,
+        follow_up_on=follow_up_on,
     )
     return lead_schema.LeadListOut(items=items, total=total)
 
@@ -204,6 +208,47 @@ def pipeline_move(
     return result
 
 
+@router.get("/{lead_id}/remarks", response_model=List[lead_schema.LeadRemarkOut])
+def lead_remarks_list(
+    lead_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    lead_service.get_lead_for_user(db, lead_id, current_user)
+    rows = lead_service.list_lead_remarks(db, lead_id)
+    return [
+        lead_schema.LeadRemarkOut(
+            id=r.id,
+            lead_id=r.lead_id,
+            user_id=r.user_id,
+            user_name=(r.user.full_name or r.user.email) if r.user else None,
+            body=r.body,
+            created_at=r.created_at,
+        )
+        for r in rows
+    ]
+
+
+@router.post("/{lead_id}/remarks", response_model=lead_schema.LeadRemarkOut)
+def lead_remarks_create(
+    lead_id: int,
+    body: lead_schema.LeadRemarkCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    lead_service.get_lead_for_user(db, lead_id, current_user)
+    r = lead_service.add_lead_remark(db, lead_id, current_user.id, body.body)
+    u = r.user
+    return lead_schema.LeadRemarkOut(
+        id=r.id,
+        lead_id=r.lead_id,
+        user_id=r.user_id,
+        user_name=(u.full_name or u.email) if u else None,
+        body=r.body,
+        created_at=r.created_at,
+    )
+
+
 @router.get("/{lead_id}/activities", response_model=List[activity_schema.ActivityRead])
 def lead_activities(
     lead_id: int,
@@ -211,7 +256,7 @@ def lead_activities(
     current_user: User = Depends(get_current_user),
 ):
     lead_service.get_lead_for_user(db, lead_id, current_user)
-    rows = activity_service.get_lead_activities(db, lead_id, limit=20)
+    rows = activity_service.get_lead_activities(db, lead_id, limit=50)
     return [
         activity_schema.ActivityRead(
             id=a.id,

@@ -5,6 +5,7 @@ from sqlalchemy import func
 from fastapi import HTTPException
 from models.user import User, UserRole
 from core.security import create_access_token as _jwt_token
+from schemas.user_schema import MemberAdminUpdate, MemberCreateIn, UserMeUpdate
 
 
 def create_access_token(data: dict, expires_delta=None):
@@ -70,8 +71,48 @@ def default_password_from_full_name(full_name: str) -> str:
     return f"{first}@{last}"
 
 
+def peek_next_member_code(db: Session) -> str:
+    m = db.query(func.max(User.id)).scalar()
+    n = (m or 0) + 1
+    return f"M{n:03d}"
+
+
+def create_team_member(db: Session, body: MemberCreateIn) -> Tuple[User, str]:
+    """Admin-created sales member; login_id set to M{id:03d}; password auto from name."""
+    fn = body.first_name.strip()
+    ln = body.last_name.strip()
+    sn = (body.surname or "").strip()
+    full_name = " ".join(p for p in (fn, ln, sn) if p)
+    if not full_name:
+        raise HTTPException(status_code=400, detail="Enter first and last name")
+
+    em = body.email.strip().lower()
+    if get_user_by_email(db, em):
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    plain_pw = default_password_from_full_name(full_name)
+    db_user = User(
+        login_id=None,
+        email=em,
+        full_name=full_name,
+        phone=body.phone.strip(),
+        password_plain=plain_pw,
+        hashed_password=None,
+        role=UserRole.SALES_AGENT,
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+
+    db_user.login_id = f"M{db_user.id:03d}"
+    db.commit()
+    db.refresh(db_user)
+
+    return db_user, plain_pw
+
+
 def register_new_member(db: Session, email: str, full_name: str) -> Tuple[User, str]:
-    """Auto login_id crm{id:05d}; password_plain = firstname@lastname from full_name."""
+    """Public sign-up: member login_id M{id:03d}; password_plain = firstname@lastname."""
     em = email.strip().lower()
     if get_user_by_email(db, em):
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -90,7 +131,7 @@ def register_new_member(db: Session, email: str, full_name: str) -> Tuple[User, 
     db.commit()
     db.refresh(db_user)
 
-    db_user.login_id = f"crm{db_user.id:05d}"
+    db_user.login_id = f"M{db_user.id:03d}"
     db.commit()
     db.refresh(db_user)
 
@@ -125,12 +166,36 @@ def verify_user_password(user: User, password: str) -> bool:
     return False
 
 
-def update_current_user(db: Session, user: User, data) -> User:
-    from schemas.user_schema import UserMeUpdate
+def update_member_admin(db: Session, user_id: int, data: MemberAdminUpdate) -> User:
+    u = get_user(db, user_id)
+    if u is None:
+        raise HTTPException(status_code=404, detail="User not found")
 
-    if not isinstance(data, UserMeUpdate):
-        data = UserMeUpdate.model_validate(data)
+    if "full_name" in data.model_fields_set and data.full_name is not None:
+        u.full_name = data.full_name.strip()
 
+    if "email" in data.model_fields_set and data.email is not None:
+        em = data.email.strip().lower()
+        if em != u.email.strip().lower():
+            if get_user_by_email(db, em):
+                raise HTTPException(status_code=400, detail="Email is already in use")
+            u.email = em
+
+    if "phone" in data.model_fields_set:
+        if data.phone is None or not str(data.phone).strip():
+            u.phone = None
+        else:
+            u.phone = str(data.phone).strip()
+
+    if "role" in data.model_fields_set and data.role is not None:
+        u.role = data.role
+
+    db.commit()
+    db.refresh(u)
+    return u
+
+
+def update_current_user(db: Session, user: User, data: UserMeUpdate) -> User:
     if "new_password" in data.model_fields_set and data.new_password:
         if not verify_user_password(user, data.current_password or ""):
             raise HTTPException(
@@ -148,6 +213,19 @@ def update_current_user(db: Session, user: User, data) -> User:
 
     if "full_name" in data.model_fields_set and data.full_name is not None:
         user.full_name = data.full_name.strip()
+
+    if "phone" in data.model_fields_set:
+        if data.phone is None or not str(data.phone).strip():
+            user.phone = None
+        else:
+            user.phone = str(data.phone).strip()
+
+    if "avatar_url" in data.model_fields_set:
+        v = data.avatar_url
+        if v is None or (isinstance(v, str) and not v.strip()):
+            user.avatar_url = None
+        else:
+            user.avatar_url = str(v).strip()
 
     db.commit()
     db.refresh(user)

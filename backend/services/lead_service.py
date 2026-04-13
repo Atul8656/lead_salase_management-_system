@@ -3,14 +3,15 @@ from __future__ import annotations
 import csv
 import io
 import re
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from typing import List, Optional, Tuple
 
 from fastapi import HTTPException
-from sqlalchemy import or_, func, cast, Date
-from sqlalchemy.orm import Session
+from sqlalchemy import or_, and_, func, cast, Date, String, case
+from sqlalchemy.orm import Session, joinedload
 
 from models.lead import Lead, LeadStatus, LeadType
+from models.lead_remark import LeadRemark
 from models.user import User, UserRole
 from schemas.lead_schema import LeadCreate, LeadUpdate, PipelineMove
 from services import activity_service
@@ -38,29 +39,8 @@ def _pipeline_index(s: LeadStatus) -> Optional[int]:
 def validate_pipeline_transition(old: LeadStatus, new: LeadStatus) -> None:
     if old == new:
         return
-    if old in TERMINAL:
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot change status: lead is already closed",
-        )
-    if new == LeadStatus.LOST:
-        return
-    if new == LeadStatus.CONVERTED:
-        if old != LeadStatus.FOLLOW_UP:
-            raise HTTPException(
-                status_code=400,
-                detail="You can mark Converted only from the Follow-up stage",
-            )
-        return
-    oi = _pipeline_index(old)
-    ni = _pipeline_index(new)
-    if oi is None or ni is None:
-        raise HTTPException(status_code=400, detail="Invalid status transition")
-    if abs(ni - oi) != 1:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid transition: move one pipeline stage at a time (no skipping)",
-        )
+    # UI requirement: pipeline drag-drop can move a lead to any stage.
+    return
 
 
 def can_access_lead(user: User, lead: Lead) -> bool:
@@ -94,6 +74,17 @@ def _scalar_for_compare(v):
     return v
 
 
+def _activity_val(x):
+    """Human-readable value for activity log lines (enum → string value)."""
+    if x is None:
+        return None
+    if hasattr(x, "value"):
+        return x.value
+    if hasattr(x, "isoformat"):
+        return x.isoformat()
+    return x
+
+
 def _field_changed(old, new) -> bool:
     return _scalar_for_compare(old) != _scalar_for_compare(new)
 
@@ -106,6 +97,29 @@ def _payment_ok(amount: float | None, method: str | None) -> bool:
     return True
 
 
+def _naive_utc(dt: Optional[datetime]) -> Optional[datetime]:
+    """TIMESTAMP WITHOUT TIME ZONE columns: psycopg rejects tz-aware values unless normalized."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt
+    return dt.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def _lead_status_text():
+    """Cast for SQL: PG native leadstatus enum vs VARCHAR bind params from TypeDecorator."""
+    return func.upper(cast(Lead.status, String))
+
+
+def _lead_type_text():
+    """Cast for SQL: PG native leadtype enum vs VARCHAR bind params from TypeDecorator."""
+    return func.upper(cast(Lead.lead_type, String))
+
+
+def _terminal_status_strings() -> list[str]:
+    return ["CONVERTED", "NOT_INTERESTED"]
+
+
 def search_leads(
     db: Session,
     user: User,
@@ -116,10 +130,11 @@ def search_leads(
     status: Optional[LeadStatus] = None,
     assigned_to: Optional[int] = None,
     lead_type: Optional[LeadType] = None,
+    source: Optional[str] = None,
     created_from: Optional[datetime] = None,
     created_to: Optional[datetime] = None,
-    overdue_only: bool = False,
-    follow_up_today: bool = False,
+       overdue_only: bool = False,
+    follow_up_on: Optional[date] = None,
 ) -> Tuple[List[Lead], int]:
     query = db.query(Lead)
     if user.role == UserRole.SALES_AGENT:
@@ -135,36 +150,88 @@ def search_leads(
             )
         )
     if status is not None:
-        query = query.filter(Lead.status == status)
+        target = "NOT_INTERESTED" if status == LeadStatus.LOST else status.value.replace("-", "_").upper()
+        query = query.filter(_lead_status_text() == target)
     if assigned_to is not None:
         query = query.filter(Lead.assigned_to == assigned_to)
     if lead_type is not None:
-        query = query.filter(Lead.lead_type == lead_type)
+        query = query.filter(_lead_type_text() == lead_type.value.upper())
+    if source is not None and str(source).strip():
+        term = f"%{str(source).strip()}%"
+        query = query.filter(Lead.source.isnot(None), Lead.source.ilike(term))
     if created_from is not None:
         query = query.filter(Lead.created_at >= created_from)
     if created_to is not None:
         query = query.filter(Lead.created_at <= created_to)
 
     now = datetime.utcnow()
-    terminal_open = (LeadStatus.CONVERTED, LeadStatus.LOST)
+    time_clauses = []
     if overdue_only:
-        query = query.filter(
-            Lead.follow_up_date.isnot(None),
-            Lead.follow_up_date < now,
-            Lead.status.notin_(terminal_open),
+        time_clauses.append(
+            and_(
+                Lead.follow_up_date.isnot(None),
+                Lead.follow_up_date < now,
+                _lead_status_text().notin_(_terminal_status_strings()),
+            )
         )
-    if follow_up_today:
-        today = date.today()
-        query = query.filter(
-            Lead.follow_up_date.isnot(None),
-            cast(Lead.follow_up_date, Date) == today,
+    if follow_up_on is not None:
+        time_clauses.append(
+            and_(
+                Lead.follow_up_date.isnot(None),
+                cast(Lead.follow_up_date, Date) == follow_up_on,
+            )
         )
+    if len(time_clauses) >= 2:
+        query = query.filter(or_(*time_clauses))
+    elif len(time_clauses) == 1:
+        query = query.filter(time_clauses[0])
 
     total = query.count()
+    prio = case(
+        (Lead.priority == "hot", 0),
+        (Lead.priority == "warm", 1),
+        (Lead.priority == "cold", 2),
+        else_=3,
+    )
     rows = (
-        query.order_by(Lead.created_at.desc()).offset(skip).limit(limit).all()
+        query.order_by(prio.asc(), Lead.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
     )
     return rows, total
+
+
+def list_lead_remarks(db: Session, lead_id: int):
+    return (
+        db.query(LeadRemark)
+        .options(joinedload(LeadRemark.user))
+        .filter(LeadRemark.lead_id == lead_id)
+        .order_by(LeadRemark.created_at.desc())
+        .all()
+    )
+
+
+def add_lead_remark(db: Session, lead_id: int, user_id: int, body: str) -> LeadRemark:
+    text = (body or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Remark cannot be empty")
+    r = LeadRemark(lead_id=lead_id, user_id=user_id, body=text)
+    db.add(r)
+    db.commit()
+    activity_service.log_activity(
+        db,
+        lead_id=lead_id,
+        user_id=user_id,
+        action="Added remark",
+        details=text[:2000],
+    )
+    return (
+        db.query(LeadRemark)
+        .options(joinedload(LeadRemark.user))
+        .filter(LeadRemark.id == r.id)
+        .one()
+    )
 
 
 def get_leads(db: Session, skip: int = 0, limit: int = 100, user: Optional[User] = None):
@@ -177,13 +244,12 @@ def get_leads(db: Session, skip: int = 0, limit: int = 100, user: Optional[User]
 
 def get_overdue_leads(db: Session, user: User, skip: int = 0, limit: int = 200):
     now = datetime.utcnow()
-    terminal = (LeadStatus.CONVERTED, LeadStatus.LOST)
     q = (
         db.query(Lead)
         .filter(
             Lead.follow_up_date.isnot(None),
             Lead.follow_up_date < now,
-            Lead.status.notin_(terminal),
+            _lead_status_text().notin_(_terminal_status_strings()),
         )
         .order_by(Lead.follow_up_date.asc())
     )
@@ -222,7 +288,7 @@ def stats_for_user(db: Session, user: User) -> dict:
     overdue_q = db.query(Lead).filter(
         Lead.follow_up_date.isnot(None),
         Lead.follow_up_date < datetime.utcnow(),
-        Lead.status.notin_((LeadStatus.CONVERTED, LeadStatus.LOST)),
+        _lead_status_text().notin_(_terminal_status_strings()),
     )
     if user.role == UserRole.SALES_AGENT:
         overdue_q = overdue_q.filter(Lead.assigned_to == user.id)
@@ -262,6 +328,9 @@ def create_lead(db: Session, lead: LeadCreate, user_id: int):
 
     if lead.status == LeadStatus.CONVERTED:
         data["converted_at"] = datetime.utcnow()
+
+    if data.get("follow_up_date") is not None:
+        data["follow_up_date"] = _naive_utc(data["follow_up_date"])
 
     db_lead = Lead(**data)
     db.add(db_lead)
@@ -321,12 +390,14 @@ def update_lead(db: Session, lead_id: int, lead_update: LeadUpdate, user_id: int
         if not _field_changed(old_val, value):
             continue
         coerced = value
+        if key == "follow_up_date" and coerced is not None:
+            coerced = _naive_utc(coerced)
         if key == "status" and value is not None:
             coerced = value if isinstance(value, LeadStatus) else LeadStatus(str(value))
         elif key == "lead_type" and value is not None:
             coerced = value if isinstance(value, LeadType) else LeadType(str(value))
         setattr(db_lead, key, coerced)
-        changes.append(f"{key}: {old_val} -> {coerced}")
+        changes.append(f"{key}: {_activity_val(old_val)} → {_activity_val(coerced)}")
 
     if changes:
         db.commit()
@@ -392,7 +463,7 @@ def move_lead_pipeline(
     old_status = db_lead.status
     db_lead.status = new_status
     if move.follow_up_date is not None:
-        db_lead.follow_up_date = move.follow_up_date
+        db_lead.follow_up_date = _naive_utc(move.follow_up_date)
 
     db.commit()
     db.refresh(db_lead)
@@ -402,7 +473,7 @@ def move_lead_pipeline(
         lead_id=db_lead.id,
         user_id=user_id,
         action="Pipeline Move",
-        details=f"Status changed from {old_status.value} → {new_status.value}",
+        details=f"Status changed from {_activity_val(old_status)} → {_activity_val(new_status)}",
     )
     return db_lead
 

@@ -1,159 +1,252 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Image from "next/image";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import UserAvatar from "@/components/UserAvatar";
+import { useAuthUser } from "@/contexts/AuthUserContext";
 import { usersApi } from "@/lib/api";
 import type { User } from "@/lib/types";
 
 export default function ProfilePage() {
+  const router = useRouter();
+  const { onUserUpdated } = useAuthUser();
   const [me, setMe] = useState<User | null>(null);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [err, setErr] = useState("");
-  const [ok, setOk] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [pwConfirmErr, setPwConfirmErr] = useState("");
+  const [loadErr, setLoadErr] = useState("");
+  const [profileErr, setProfileErr] = useState("");
+  const [pwErr, setPwErr] = useState("");
+  const [okProfile, setOkProfile] = useState("");
+  const [okPw, setOkPw] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingPw, setSavingPw] = useState(false);
 
   const load = useCallback(async () => {
     const u = await usersApi.me();
     setMe(u);
     setFullName(u.full_name);
     setEmail(u.email);
+    setPhone(u.phone ?? "");
+    setAvatarUrl(u.avatar_url ?? "");
   }, []);
 
   useEffect(() => {
-    load().catch((e) => setErr(e instanceof Error ? e.message : "Failed to load profile"));
+    load().catch((e) => setLoadErr(e instanceof Error ? e.message : "Failed to load profile"));
   }, [load]);
 
-  async function onSave(e: React.FormEvent) {
+  async function onSaveProfile(e: React.FormEvent) {
     e.preventDefault();
-    setErr("");
-    setOk("");
-    setSaving(true);
+    setProfileErr("");
+    setOkProfile("");
+    setSavingProfile(true);
     try {
-      const body: Record<string, unknown> = {
-        full_name: fullName,
-        email,
-      };
-      if (newPassword.trim()) {
-        body.current_password = currentPassword;
-        body.new_password = newPassword;
-      }
-      const u = await usersApi.patchMe(body);
+      const u = await usersApi.patchMe({
+        full_name: fullName.trim(),
+        email: email.trim(),
+        phone: phone.trim() || null,
+        avatar_url: avatarUrl.trim() || null,
+      });
       setMe(u);
-      setCurrentPassword("");
-      setNewPassword("");
-      setOk("Profile updated.");
+      onUserUpdated(u);
+      setOkProfile("Profile updated successfully");
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Update failed");
+      setProfileErr(e instanceof Error ? e.message : "Update failed");
     } finally {
-      setSaving(false);
+      setSavingProfile(false);
     }
   }
 
-  if (!me && !err) {
+  async function onSavePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPwErr("");
+    setOkPw("");
+    setPwConfirmErr("");
+    if (!currentPassword.trim()) {
+      setPwErr("Current password is required.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPwErr("New password must be at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPwConfirmErr("Passwords do not match");
+      return;
+    }
+    setSavingPw(true);
+    try {
+      const u = await usersApi.patchMe({
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+      setMe(u);
+      onUserUpdated(u);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setOkPw("Password updated successfully");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Update failed";
+      if (msg.toLowerCase().includes("current password") || msg.toLowerCase().includes("incorrect")) {
+        setPwErr("Current password is incorrect");
+      } else {
+        setPwErr(msg);
+      }
+    } finally {
+      setSavingPw(false);
+    }
+  }
+
+  if (!me && !loadErr) {
     return <p className="font-medium text-neutral-500">Loading…</p>;
   }
 
+  if (!me) {
+    return <p className="font-semibold text-red-800">{loadErr}</p>;
+  }
+
   return (
-    <div className="mx-auto max-w-lg space-y-8">
-      <div>
-        <Link href="/dashboard" className="app-link text-sm">
-          ← Dashboard
-        </Link>
-        <h2 className="mt-4 text-2xl font-bold text-neutral-900">Profile</h2>
-        <p className="text-sm font-medium text-neutral-500">
-          Account details and password · same logo as the sidebar
-        </p>
-      </div>
-
-      <div className="flex items-center gap-4 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-neutral-200">
-          <Image
-            src="/brand-mark.png"
-            alt=""
-            width={40}
-            height={40}
-            className="object-contain"
-          />
-        </div>
-        <div>
-          <p className="font-bold text-neutral-900">{me?.full_name}</p>
-          <p className="text-sm text-neutral-600">{me?.email}</p>
-          <p className="text-xs font-semibold uppercase text-neutral-500">
-            Role: {me?.role?.replace("_", " ")}
-            {me?.login_id ? ` · ${me.login_id}` : ""}
-          </p>
-        </div>
-      </div>
-
-      <form
-        onSubmit={onSave}
-        className="space-y-4 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
+    <div className="mx-auto w-full max-w-[480px] space-y-6 px-4 py-2">
+      <button
+        type="button"
+        onClick={() => router.back()}
+        className="text-sm font-semibold text-neutral-600 hover:text-neutral-900"
       >
-        {err && (
-          <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-900">
-            {err}
-          </p>
-        )}
-        {ok && (
-          <p className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-sm font-semibold text-neutral-900">
-            {ok}
-          </p>
-        )}
-        <div>
-          <label className="block text-xs font-semibold text-neutral-700">Full name</label>
-          <input
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            required
-            className="mt-1 w-full rounded-xl border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-900"
-          />
+        ← Back
+      </button>
+
+      <div className="rounded-xl border-[0.5px] border-neutral-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col items-center text-center">
+          <UserAvatar user={me} loading={false} sizeClass="h-14 w-14" textClass="text-lg" />
+          <p className="mt-4 text-lg font-medium text-neutral-900">{me.full_name}</p>
+          <p className="mt-1 text-sm text-neutral-500">{me.email}</p>
         </div>
-        <div>
-          <label className="block text-xs font-semibold text-neutral-700">Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="mt-1 w-full rounded-xl border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-900"
-          />
-        </div>
-        <div className="border-t border-neutral-200 pt-4">
-          <p className="text-sm font-semibold text-neutral-800">Change password</p>
-          <p className="text-xs text-neutral-500">Leave blank to keep current password.</p>
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-neutral-700">Current password</label>
-          <input
-            type="password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            autoComplete="current-password"
-            className="mt-1 w-full rounded-xl border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-900"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-neutral-700">New password</label>
-          <input
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            autoComplete="new-password"
-            className="mt-1 w-full rounded-xl border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-900"
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={saving}
-          className="w-full rounded-xl bg-neutral-900 py-3 font-semibold text-white disabled:opacity-50"
-        >
-          {saving ? "Saving…" : "Save changes"}
-        </button>
-      </form>
+        <hr className="my-6 border-neutral-200" />
+        <form onSubmit={onSaveProfile} className="space-y-4">
+          {okProfile && (
+            <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900">
+              {okProfile}
+            </p>
+          )}
+          {profileErr && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-900">
+              {profileErr}
+            </p>
+          )}
+          <div>
+            <label className="block text-xs font-semibold text-neutral-700">Full name</label>
+            <input
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              required
+              className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-900"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-neutral-700">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-900"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-neutral-700">Phone</label>
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-900"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-neutral-700">Profile photo URL</label>
+            <input
+              type="url"
+              value={avatarUrl}
+              onChange={(e) => setAvatarUrl(e.target.value)}
+              placeholder="https://…"
+              className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-900"
+            />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-neutral-500">Role</p>
+            <p className="mt-1 text-sm font-medium text-neutral-800">
+              {(me.role || "").replace(/_/g, " ")}
+            </p>
+          </div>
+          <button
+            type="submit"
+            disabled={savingProfile}
+            className="w-full rounded-xl bg-neutral-900 py-3 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {savingProfile ? "Saving…" : "Save changes"}
+          </button>
+        </form>
+      </div>
+
+      <div className="rounded-xl border-[0.5px] border-neutral-200 bg-white p-6 shadow-sm">
+        <h2 className="text-base font-bold text-neutral-900">Change password</h2>
+        <form onSubmit={onSavePassword} className="mt-4 space-y-4">
+          {okPw && (
+            <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900">
+              {okPw}
+            </p>
+          )}
+          {pwErr && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-900">
+              {pwErr}
+            </p>
+          )}
+          <div>
+            <label className="block text-xs font-semibold text-neutral-700">Current password</label>
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              autoComplete="current-password"
+              className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-neutral-700">New password</label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
+              className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-neutral-700">Confirm new password</label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
+              className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm"
+            />
+            {pwConfirmErr && (
+              <p className="mt-1 text-sm font-medium text-red-700">{pwConfirmErr}</p>
+            )}
+          </div>
+          <button
+            type="submit"
+            disabled={savingPw}
+            className="w-full rounded-xl bg-neutral-900 py-3 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {savingPw ? "Updating…" : "Update password"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

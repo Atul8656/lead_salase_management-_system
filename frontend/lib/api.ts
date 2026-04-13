@@ -3,6 +3,9 @@ import type {
   FollowUp,
   Lead,
   LeadListResponse,
+  LeadRemark,
+  MemberCreatedResponse,
+  NextMemberIdResponse,
   StatsSummary,
   User,
 } from "./types";
@@ -14,10 +17,12 @@ export type LeadListParams = {
   status?: string;
   assigned_to?: number;
   lead_type?: string;
+  source?: string;
   created_from?: string;
   created_to?: string;
   overdue_only?: boolean;
-  follow_up_today?: boolean;
+  /** Local calendar date YYYY-MM-DD — follow-up scheduled this day */
+  follow_up_on?: string;
 };
 
 function buildLeadQuery(params?: LeadListParams): string {
@@ -56,7 +61,7 @@ function apiUrl(apiPath: string): string {
 
 function explainNetworkError(): Error {
   return new Error(
-    "Cannot reach the API. Start the backend: cd backend && python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload"
+    "Cannot reach the server. Check your connection and try again."
   );
 }
 
@@ -147,6 +152,7 @@ export async function loginRequest(usernameOrEmail: string, password: string) {
 export interface UserRegisteredResponse {
   id: number;
   login_id: string | null;
+  member_id?: string;
   email: string;
   full_name: string;
   role: string;
@@ -183,6 +189,12 @@ export const leadsApi = {
     }),
   activities: (id: number) =>
     api<ActivityItem[]>(`/api/leads/${id}/activities`),
+  remarks: (id: number) => api<LeadRemark[]>(`/api/leads/${id}/remarks`),
+  addRemark: (id: number, body: string) =>
+    api<LeadRemark>(`/api/leads/${id}/remarks`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    }),
   stats: () => api<StatsSummary>("/api/leads/stats/summary"),
   overdue: () => api<Lead[]>("/api/leads/overdue"),
   importFile: (file: File) => {
@@ -200,6 +212,24 @@ export const usersApi = {
   patchMe: (body: Record<string, unknown>) =>
     api<User>("/api/users/me", { method: "PATCH", body: JSON.stringify(body) }),
   assignees: () => api<User[]>("/api/users/assignees"),
+  nextMemberId: () => api<NextMemberIdResponse>("/api/users/members/next-id"),
+  createMember: (body: {
+    first_name: string;
+    last_name: string;
+    surname?: string;
+    email: string;
+    phone: string;
+  }) =>
+    api<MemberCreatedResponse>("/api/users/members", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  getMember: (id: number) => api<User>(`/api/users/members/${id}`),
+  patchMember: (id: number, body: Record<string, unknown>) =>
+    api<User>(`/api/users/members/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
 };
 
 export const followupsApi = {
@@ -241,5 +271,5 @@ export async function downloadImportSampleCsv() {
   URL.revokeObjectURL(url);
 }
 
-/** Resolved API base for debugging (empty = using Next proxy) */
-export const API = getApiBase() || "/api (proxied to backend :8000)";
+/** Resolved API base for debugging in dev only (avoid showing in end-user UI). */
+export const API = getApiBase() || "";

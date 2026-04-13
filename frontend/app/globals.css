@@ -7,6 +7,7 @@
   --border: #e5e5e5;
   --card: #ffffff;
   --ring: rgba(10, 10, 10, 0.12);
+  --color-background-secondary: #f5f5f5;
 }
 
 @theme inline {
@@ -70,4 +71,25 @@ a.url-link:hover {
 
 .animate-fade-in {
   animation: fadeIn 0.45s ease-out forwards;
+}
+
+/* Native selects: match B/W theme (no default blue focus ring) */
+select.app-select,
+select {
+  appearance: auto;
+  accent-color: #0a0a0a;
+  color-scheme: light;
+}
+
+select.app-select:focus,
+select:focus {
+  outline: none;
+  border-color: #0a0a0a;
+  box-shadow: 0 0 0 1px #0a0a0a;
+}
+
+select.app-select option,
+select option {
+  background-color: #ffffff;
+  color: #0a0a0a;
 }

@@ -48,8 +48,8 @@ export default function RegisterPage() {
         <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm">
           <h1 className="text-center text-xl font-bold text-neutral-900">Account created</h1>
           <p className="mt-2 text-center text-sm font-medium text-neutral-600">
-            Your password is stored in plain text as{" "}
-            <strong className="font-semibold text-neutral-900">firstname@lastname</strong> from your name (see below).
+            Save your sign-in details below. You can change your password anytime from the account menu after you
+            sign in.
           </p>
           <dl className="mt-6 space-y-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm">
             <div className="flex justify-between gap-4">
@@ -58,11 +58,11 @@ export default function RegisterPage() {
             </div>
             <div className="flex justify-between gap-4">
               <dt className="font-medium text-neutral-500">Password</dt>
-              <dd className="text-right font-mono font-semibold text-neutral-900">{created.generated_password}</dd>
+              <dd className="text-right font-semibold text-neutral-900">{created.generated_password}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="font-medium text-neutral-500">User ID</dt>
-              <dd className="font-mono font-semibold text-neutral-900">{created.login_id}</dd>
+              <dt className="font-medium text-neutral-500">Member ID</dt>
+              <dd className="font-semibold text-neutral-900">{created.login_id}</dd>
             </div>
           </dl>
           {error && <p className="mt-4 text-sm font-semibold text-neutral-900">{error}</p>}
@@ -84,8 +84,7 @@ export default function RegisterPage() {
       <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm">
         <h1 className="text-center text-2xl font-bold text-neutral-900">Create account</h1>
         <p className="mt-2 text-center text-sm font-medium text-neutral-600">
-          Password is set automatically as <strong className="font-semibold text-neutral-900">firstname@lastname</strong> from your
-          full name and saved in the database.
+          A starter password is created from your name. You will see it once after registration so you can sign in.
         </p>
         <form onSubmit={onSubmit} className="mt-8 space-y-4">
           <div>
