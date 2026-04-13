@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { downloadLeadsCsv, leadsApi, usersApi } from "@/lib/api";
-import type { Lead, LeadListParams, StatsSummary, User } from "@/lib/types";
+import { downloadLeadsCsv, leadsApi, usersApi, type LeadListParams } from "@/lib/api";
+import type { Lead, StatsSummary, User } from "@/lib/types";
 import { localTodayYMD } from "@/lib/formatDate";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatAppDateTime } from "@/lib/formatDate";
@@ -191,34 +191,56 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2 glass overflow-hidden rounded-2xl border border-neutral-200 bg-white">
-          <div className="flex items-center justify-between border-b border-neutral-200 px-6 py-4">
+          <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3 sm:px-6 sm:py-4">
             <h3 className="font-bold text-neutral-900">Recent leads</h3>
             <Link href="/leads" className="app-link text-sm">
               View all
             </Link>
           </div>
-          <div className="overflow-x-auto">
+          <div className="md:hidden">
+            <div className="divide-y divide-neutral-100">
+              {recent.map((lead) => (
+                <Link
+                  key={lead.id}
+                  href={`/leads/${lead.id}`}
+                  className="block px-4 py-3.5 transition hover:bg-neutral-50"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-neutral-900">{lead.name}</p>
+                      <p className="mt-0.5 text-xs font-medium text-neutral-500">{lead.company_name ?? "—"}</p>
+                    </div>
+                    <StatusBadge status={lead.status} />
+                  </div>
+                  <p className="mt-2 text-xs font-medium text-neutral-500">
+                    {formatAppDateTime(lead.updated_at || lead.created_at)}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-neutral-200 text-xs font-semibold uppercase text-neutral-500">
-                  <th className="px-6 py-3">Lead</th>
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3 text-right">Updated</th>
+                  <th className="px-4 py-3 lg:px-6">Lead</th>
+                  <th className="px-4 py-3 lg:px-6">Status</th>
+                  <th className="px-4 py-3 text-right lg:px-6">Updated</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
                 {recent.map((lead) => (
                   <tr key={lead.id} className="hover:bg-neutral-50">
-                    <td className="px-6 py-3">
+                    <td className="px-4 py-3 lg:px-6">
                       <Link href={`/leads/${lead.id}`} className="app-link font-semibold">
                         {lead.name}
                       </Link>
                       <div className="text-xs font-medium text-neutral-500">{lead.company_name ?? "—"}</div>
                     </td>
-                    <td className="px-6 py-3">
+                    <td className="px-4 py-3 lg:px-6">
                       <StatusBadge status={lead.status} />
                     </td>
-                    <td className="px-6 py-3 text-right font-medium text-neutral-500">
+                    <td className="px-4 py-3 text-right font-medium text-neutral-500 lg:px-6">
                       {formatAppDateTime(lead.updated_at || lead.created_at)}
                     </td>
                   </tr>

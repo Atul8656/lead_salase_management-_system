@@ -1,18 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import {
-  downloadImportSampleCsv,
-  downloadLeadsCsv,
-  leadsApi,
-  usersApi,
-} from "@/lib/api";
+import { downloadLeadsCsv, leadsApi, usersApi } from "@/lib/api";
 import type { Lead, LeadStatus, LeadType, User } from "@/lib/types";
 import { formatAppDateTime, localDateEndISO, localDateStartISO, localTodayYMD } from "@/lib/formatDate";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PriorityBadge } from "@/components/PriorityBadge";
-import { assigneeLabel } from "@/components/LeadsDataTable";
+import LeadsDataTable, { assigneeLabel } from "@/components/LeadsDataTable";
+import { coerceLeadPriority } from "@/lib/leadNormalize";
 
 const STATUSES: LeadStatus[] = [
   "new",
@@ -80,6 +76,7 @@ export default function LeadsPage() {
     rows: string[][];
   } | null>(null);
   const [pendingImportFile, setPendingImportFile] = useState<File | null>(null);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
 
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
@@ -91,6 +88,7 @@ export default function LeadsPage() {
   const [createdTo, setCreatedTo] = useState("");
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [followUpToday, setFollowUpToday] = useState(false);
+  const [leadView, setLeadView] = useState<"list" | "table">("table");
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedQ(q.trim()), 350);
@@ -331,14 +329,31 @@ export default function LeadsPage() {
               : ""}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => downloadImportSampleCsv().catch(console.error)}
-            className="rounded-xl border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
-          >
-            Sample CSV
-          </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="mr-1 inline-flex rounded-xl border border-neutral-200 bg-neutral-100/80 p-0.5">
+            <button
+              type="button"
+              onClick={() => setLeadView("list")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                leadView === "list"
+                  ? "bg-white text-neutral-900 shadow-sm"
+                  : "text-neutral-600 hover:text-neutral-900"
+              }`}
+            >
+              List
+            </button>
+            <button
+              type="button"
+              onClick={() => setLeadView("table")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                leadView === "table"
+                  ? "bg-white text-neutral-900 shadow-sm"
+                  : "text-neutral-600 hover:text-neutral-900"
+              }`}
+            >
+              Table
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => {
@@ -346,6 +361,9 @@ export default function LeadsPage() {
               setImportMsg("");
               setImportPreview(null);
               setPendingImportFile(null);
+              requestAnimationFrame(() => {
+                if (importFileInputRef.current) importFileInputRef.current.value = "";
+              });
             }}
             className="rounded-xl border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
           >
@@ -367,9 +385,9 @@ export default function LeadsPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
+      <div className="rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm sm:p-4">
         <div className="flex flex-wrap items-end gap-3">
-          <label className="flex min-w-[160px] flex-1 flex-col gap-1">
+          <label className="flex min-w-0 w-full flex-1 flex-col gap-1 sm:min-w-[160px]">
             <span className="text-xs font-semibold text-neutral-600">Search</span>
             <input
               value={q}
@@ -381,7 +399,7 @@ export default function LeadsPage() {
               className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-900"
             />
           </label>
-          <label className="flex min-w-[120px] flex-col gap-1">
+          <label className="flex min-w-0 w-full flex-col gap-1 sm:min-w-[120px] sm:w-auto">
             <span className="text-xs font-semibold text-neutral-600">Status</span>
             <select
               value={status}
@@ -399,7 +417,7 @@ export default function LeadsPage() {
               ))}
             </select>
           </label>
-          <label className="flex min-w-[140px] flex-col gap-1">
+          <label className="flex min-w-0 w-full flex-col gap-1 sm:min-w-[140px] sm:w-auto">
             <span className="text-xs font-semibold text-neutral-600">Assigned</span>
             <select
               value={assignedTo}
@@ -417,7 +435,7 @@ export default function LeadsPage() {
               ))}
             </select>
           </label>
-          <label className="flex min-w-[120px] flex-col gap-1">
+          <label className="flex min-w-0 w-full flex-col gap-1 sm:min-w-[120px] sm:w-auto">
             <span className="text-xs font-semibold text-neutral-600">Type</span>
             <select
               value={leadType}
@@ -432,7 +450,7 @@ export default function LeadsPage() {
               <option value="outbound">Outbound</option>
             </select>
           </label>
-          <label className="flex min-w-[140px] flex-col gap-1">
+          <label className="flex min-w-0 w-full flex-col gap-1 sm:min-w-[140px] sm:w-auto">
             <span className="text-xs font-semibold text-neutral-600">Source contains</span>
             <input
               value={source}
@@ -444,7 +462,7 @@ export default function LeadsPage() {
               className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-900"
             />
           </label>
-          <label className="flex min-w-[140px] flex-col gap-1">
+          <label className="flex min-w-0 w-full flex-col gap-1 sm:min-w-[140px] sm:w-auto">
             <span className="text-xs font-semibold text-neutral-600">Created from</span>
             <input
               type="date"
@@ -456,7 +474,7 @@ export default function LeadsPage() {
               className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-900"
             />
           </label>
-          <label className="flex min-w-[140px] flex-col gap-1">
+          <label className="flex min-w-0 w-full flex-col gap-1 sm:min-w-[140px] sm:w-auto">
             <span className="text-xs font-semibold text-neutral-600">Created to</span>
             <input
               type="date"
@@ -468,7 +486,7 @@ export default function LeadsPage() {
               className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-900"
             />
           </label>
-          <label className="flex cursor-pointer items-center gap-2 pt-6">
+          <label className="flex w-full cursor-pointer items-center gap-2 py-1 sm:w-auto sm:py-0 md:pt-6">
             <input
               type="checkbox"
               checked={overdueOnly}
@@ -480,7 +498,7 @@ export default function LeadsPage() {
             />
             <span className="text-sm font-semibold text-neutral-800">Overdue</span>
           </label>
-          <label className="flex cursor-pointer items-center gap-2 pt-6">
+          <label className="flex w-full cursor-pointer items-center gap-2 py-1 sm:w-auto sm:py-0 md:pt-6">
             <input
               type="checkbox"
               checked={followUpToday}
@@ -537,11 +555,32 @@ export default function LeadsPage() {
             email, company_name, status, assigned_to, source, location, description, remarks (notes), budget.
           </p>
           <input
+            ref={importFileInputRef}
             type="file"
-            accept=".csv,.xlsx,.xls"
-            className="mt-3 block text-sm"
-            onChange={(e) => onPickImportFile(e.target.files?.[0] ?? null)}
+            accept=".csv,.xlsx,.xls,text/csv,application/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            className="sr-only"
+            onChange={(e) => {
+              const file = e.target.files?.[0] ?? null;
+              void onPickImportFile(file);
+              e.target.value = "";
+            }}
           />
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => importFileInputRef.current?.click()}
+              className="rounded-xl border border-neutral-900 bg-white px-4 py-2.5 text-sm font-semibold text-neutral-900 shadow-sm hover:bg-neutral-50"
+            >
+              Choose file…
+            </button>
+            {pendingImportFile ? (
+              <span className="text-sm font-medium text-neutral-700">
+                Selected: <span className="text-neutral-900">{pendingImportFile.name}</span>
+              </span>
+            ) : (
+              <span className="text-sm text-neutral-500">No file chosen</span>
+            )}
+          </div>
           {importMsg && (
             <p className="mt-2 text-sm font-medium text-neutral-800">{importMsg}</p>
           )}
@@ -588,6 +627,7 @@ export default function LeadsPage() {
                 setImportPreview(null);
                 setPendingImportFile(null);
                 setImportMsg("");
+                if (importFileInputRef.current) importFileInputRef.current.value = "";
               }}
               className="text-sm font-semibold text-neutral-600 hover:text-neutral-900"
             >
@@ -603,55 +643,59 @@ export default function LeadsPage() {
         </p>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
-        <div className="divide-y divide-neutral-200">
-          {data.items.map((l) => {
-            const overdue = leadIsOverdue(l);
-            return (
-              <Link
-                key={l.id}
-                href={`/leads/${l.id}`}
-                className={`block px-4 py-3 transition hover:bg-neutral-50/90 ${
-                  overdue ? "bg-red-50/60" : ""
-                }`}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-base font-medium leading-snug text-neutral-900">{l.name}</p>
-                    <p className="mt-1 text-sm text-neutral-500">
-                      {[l.phone, l.email].filter(Boolean).join(" · ") || "—"}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-                    <PriorityBadge priority={l.priority} size="xs" />
-                    <StatusBadge status={l.status} />
-                  </div>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-500">
-                  <span>
-                    <span className="font-semibold text-neutral-600">Assigned:</span>{" "}
-                    {assigneeLabel(users, l.assigned_to)}
-                  </span>
-                  <span>
-                    <span className="font-semibold text-neutral-600">Created:</span>{" "}
-                    {formatAppDateTime(l.created_at)}
-                  </span>
-                  <span>
-                    <span className="font-semibold text-neutral-600">Follow-up:</span>{" "}
-                    {l.follow_up_date ? formatAppDateTime(l.follow_up_date) : "—"}
-                  </span>
-                  {overdue && (
-                    <span className="font-bold text-red-700">Overdue</span>
-                  )}
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-        {data.items.length === 0 && !err && (
-          <p className="px-4 py-12 text-center text-sm font-medium text-neutral-500">
-            No leads match these filters.
-          </p>
+      <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+        {leadView === "table" ? (
+          <LeadsDataTable items={data.items} users={users} />
+        ) : (
+          <>
+            <div className="divide-y divide-neutral-200">
+              {data.items.map((l) => {
+                const overdue = leadIsOverdue(l);
+                const hot = coerceLeadPriority(l.priority) === "hot";
+                const rowBg = overdue ? "bg-rose-50/55" : hot ? "bg-emerald-50/50" : "";
+                return (
+                  <Link
+                    key={l.id}
+                    href={`/leads/${l.id}`}
+                    className={`block px-5 py-4 transition hover:bg-neutral-50/90 ${rowBg}`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-base font-bold leading-snug text-neutral-900">{l.name}</p>
+                        <p className="mt-1.5 text-sm text-neutral-500">
+                          {[l.phone, l.email].filter(Boolean).join(" · ") || "—"}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                        <PriorityBadge priority={l.priority} size="xs" />
+                        <StatusBadge status={l.status} />
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-neutral-500">
+                      <span>
+                        <span className="font-semibold text-neutral-600">Assigned:</span>{" "}
+                        {assigneeLabel(users, l.assigned_to)}
+                      </span>
+                      <span>
+                        <span className="font-semibold text-neutral-600">Created:</span>{" "}
+                        {formatAppDateTime(l.created_at)}
+                      </span>
+                      <span>
+                        <span className="font-semibold text-neutral-600">Follow-up:</span>{" "}
+                        {l.follow_up_date ? formatAppDateTime(l.follow_up_date) : "—"}
+                      </span>
+                      {overdue && <span className="font-bold text-red-600">Overdue</span>}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+            {data.items.length === 0 && !err && (
+              <p className="px-4 py-12 text-center text-sm font-medium text-neutral-500">
+                No leads match these filters.
+              </p>
+            )}
+          </>
         )}
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-200 px-4 py-3 text-sm">
           <span className="font-medium text-neutral-600">

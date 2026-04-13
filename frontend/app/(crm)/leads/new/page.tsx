@@ -37,7 +37,6 @@ export default function NewLeadPage() {
     linkedin_url: "",
     location: "",
     source: "",
-    source_detail: "",
     lead_type: "inbound" as LeadType,
     status: "new" as LeadStatus,
     assigned_to: "" as string,
@@ -124,7 +123,6 @@ export default function NewLeadPage() {
         linkedin_url: form.linkedin_url || null,
         location: form.location || null,
         source: form.source || null,
-        source_detail: form.source_detail || null,
         lead_type: form.lead_type,
         status: form.status,
         interest: form.interest || null,
@@ -253,11 +251,6 @@ export default function NewLeadPage() {
                 <option value="other">Other</option>
               </select>
             </div>
-            <Field
-              label="Source detail"
-              value={form.source_detail}
-              onChange={(v) => setForm((f) => ({ ...f, source_detail: v }))}
-            />
             <div>
               <label className="block text-xs font-semibold text-neutral-700">Lead type</label>
               <select

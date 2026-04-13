@@ -4,15 +4,23 @@ from core.config import settings
 from routes import auth_routes, lead_routes, user_routes, followup_routes, report_routes
 
 # redirect_slashes=False avoids 307 /api/leads → /api/leads/ where clients drop Authorization
-app = FastAPI(title="Lead & Sales Management API", redirect_slashes=False)
+app = FastAPI(title="SALENLO API", redirect_slashes=False)
 
-_cors = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
-if not _cors:
-    _cors = ["*"]
+# Explicit dev origins + any from .env. Quick tunnels (*.trycloudflare.com) match via regex
+# so you do not need to edit .env every time the tunnel hostname changes.
+_default_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+]
+_env_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
+_cors = list(dict.fromkeys([*_default_origins, *_env_origins]))
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors,
+    allow_origin_regex=r"https://[a-z0-9\-]+\.trycloudflare\.com",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -27,7 +35,7 @@ app.include_router(report_routes.router, prefix="/api/reports", tags=["reports"]
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to the Lead & Sales Management API"}
+    return {"message": "SALENLO API", "docs": "/docs"}
 
 if __name__ == "__main__":
     import uvicorn

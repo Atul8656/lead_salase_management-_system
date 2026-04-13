@@ -1,0 +1,8 @@
+{
+  "name": "salenlo-workspace",
+  "private": true,
+  "description": "Convenience scripts for SALENLO monorepo (optional)",
+  "scripts": {
+    "tunnel": "cloudflared tunnel --url http://localhost:8000"
+  }
+}

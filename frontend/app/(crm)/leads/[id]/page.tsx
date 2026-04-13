@@ -1,14 +1,31 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { leadsApi, usersApi } from "@/lib/api";
-import type { ActivityItem, Lead, LeadStatus, LeadType, User } from "@/lib/types";
-import { formatAppDateTime, formatRemarkTimestamp } from "@/lib/formatDate";
+import type { ActivityItem, Lead, LeadRemark, LeadStatus, LeadType, User } from "@/lib/types";
+import { formatActivityDetail } from "@/lib/formatActivityDetail";
+import { formatRemarkTimestamp } from "@/lib/formatDate";
 import { userInitials } from "@/lib/userDisplay";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PriorityBadge } from "@/components/PriorityBadge";
+import { coerceLeadPriority } from "@/lib/leadNormalize";
+import {
+  IconCalendar,
+  IconChevronLeft,
+  IconColumns,
+  IconGlobe,
+  IconLinkedIn,
+  IconMail,
+  IconMapPin,
+  IconPencil,
+  IconPhone,
+  IconSend,
+  IconTag,
+  IconTrash,
+  IconWhatsApp,
+} from "@/components/lead-detail-icons";
 
 function memberLabel(u: User): string {
   return u.member_id ?? `M${String(u.id).padStart(3, "0")}`;
@@ -44,9 +61,14 @@ function formatActivityLabel(action: string): string {
     "Lead Updated": "Lead updated",
     "Pipeline Move": "Pipeline updated",
     "Added remark": "Added remark",
+    "Follow-up scheduled": "Follow-up scheduled",
   };
   return map[action] ?? action;
 }
+
+type TimelineEntry =
+  | { kind: "remark"; key: string; at: string; remark: LeadRemark }
+  | { kind: "activity"; key: string; at: string; activity: ActivityItem };
 
 export default function LeadDetailPage() {
   const params = useParams();
@@ -54,6 +76,7 @@ export default function LeadDetailPage() {
   const id = Number(params.id);
   const [lead, setLead] = useState<Lead | null>(null);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [remarks, setRemarks] = useState<LeadRemark[]>([]);
   const [remarkDraft, setRemarkDraft] = useState("");
   const [savingRemark, setSavingRemark] = useState(false);
   const [err, setErr] = useState("");
@@ -69,7 +92,6 @@ export default function LeadDetailPage() {
     linkedin_url: "",
     location: "",
     source: "",
-    source_detail: "",
     lead_type: "inbound" as LeadType,
     status: "new" as LeadStatus,
     assigned_to: "" as string,
@@ -86,8 +108,13 @@ export default function LeadDetailPage() {
   const load = useCallback(async () => {
     if (!id || Number.isNaN(id)) return;
     try {
-      const [l, acts] = await Promise.all([leadsApi.get(id), leadsApi.activities(id)]);
+      const [l, acts, rem] = await Promise.all([
+        leadsApi.get(id),
+        leadsApi.activities(id),
+        leadsApi.remarks(id),
+      ]);
       setLead(l);
+      setRemarks(rem);
       setEditForm({
         name: l.name,
         email: l.email ?? "",
@@ -97,7 +124,6 @@ export default function LeadDetailPage() {
         linkedin_url: l.linkedin_url ?? "",
         location: l.location ?? "",
         source: l.source ?? "",
-        source_detail: l.source_detail ?? "",
         lead_type: l.lead_type,
         status: l.status,
         assigned_to: l.assigned_to != null ? String(l.assigned_to) : "",
@@ -105,7 +131,7 @@ export default function LeadDetailPage() {
         budget: l.budget ?? "",
         timeline: l.timeline ?? "",
         description: l.description ?? "",
-        priority: (l.priority as typeof editForm.priority) || "",
+        priority: coerceLeadPriority(l.priority) || "",
         payment_amount: l.payment_amount != null ? String(l.payment_amount) : "",
         payment_method: l.payment_method ?? "",
         follow_up_date: toLocalDatetimeValue(l.follow_up_date),
@@ -129,6 +155,29 @@ export default function LeadDetailPage() {
       .then(setUsers)
       .catch(() => setUsers([]));
   }, []);
+
+  const activitiesSansRemarkEcho = useMemo(
+    () => activities.filter((a) => a.action !== "Added remark"),
+    [activities]
+  );
+
+  const timeline = useMemo((): TimelineEntry[] => {
+    const r: TimelineEntry[] = remarks.map((remark) => ({
+      kind: "remark",
+      key: `r-${remark.id}`,
+      at: remark.created_at,
+      remark,
+    }));
+    const a: TimelineEntry[] = activitiesSansRemarkEcho.map((activity) => ({
+      kind: "activity",
+      key: `a-${activity.id}`,
+      at: activity.created_at,
+      activity,
+    }));
+    return [...r, ...a].sort(
+      (p, q) => new Date(q.at).getTime() - new Date(p.at).getTime()
+    );
+  }, [remarks, activitiesSansRemarkEcho]);
 
   async function submitRemark() {
     if (!lead || !remarkDraft.trim()) return;
@@ -160,7 +209,6 @@ export default function LeadDetailPage() {
         linkedin_url: editForm.linkedin_url || null,
         location: editForm.location || null,
         source: editForm.source || null,
-        source_detail: editForm.source_detail || null,
         lead_type: editForm.lead_type,
         status: editForm.status,
         interest: editForm.interest || null,
@@ -200,81 +248,128 @@ export default function LeadDetailPage() {
   }
 
   if (!lead && !err) {
-    return <div className="font-medium text-neutral-500">Loading…</div>;
+    return (
+      <div className="font-medium" style={{ color: "var(--foreground-muted)" }}>
+        Loading…
+      </div>
+    );
   }
 
   if (!lead) {
-    return <p className="font-semibold text-neutral-900">{err || "Not found"}</p>;
+    return (
+      <p className="font-semibold" style={{ color: "var(--foreground)" }}>
+        {err || "Not found"}
+      </p>
+    );
   }
 
   const whatsapp = waLink(lead.phone);
+  const inputStyle = {
+    borderColor: "var(--border)",
+    background: "var(--card)",
+    color: "var(--foreground)",
+  } as const;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8">
-      <div>
-        <Link href="/leads" className="app-link text-sm">
-          ← Leads
-        </Link>
-        <div className="mt-6 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm ring-1 ring-black/[0.04]">
-          <div className="border-b border-neutral-100 bg-gradient-to-br from-neutral-50 via-white to-neutral-50/80 px-6 py-8 sm:px-8">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-              <div className="min-w-0 flex-1 space-y-2">
-                <h1 className="text-3xl font-bold tracking-tight text-neutral-900">{lead.name}</h1>
-                <p className="text-sm font-medium text-neutral-500">
-                  {lead.company_name ?? "No company on file"}
-                </p>
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <StatusBadge status={lead.status} />
-                  <PriorityBadge priority={lead.priority} />
-                  {lead.follow_up_date &&
-                    new Date(lead.follow_up_date) < new Date() &&
-                    lead.status !== "converted" &&
-                    lead.status !== "lost" && (
-                      <span className="rounded-md border border-neutral-300 bg-neutral-100 px-2 py-0.5 text-xs font-bold text-neutral-900">
-                        Follow-up overdue
-                      </span>
-                    )}
-                </div>
-              </div>
-              <div className="flex shrink-0 flex-wrap gap-2">
-                {whatsapp && (
-                  <a
-                    href={whatsapp}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-xl border border-neutral-900 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-900 hover:text-white"
-                  >
-                    WhatsApp
-                  </a>
+    <div className="mx-auto max-w-6xl animate-fade-in pb-8 md:pb-12">
+      <Link
+        href="/leads"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold transition-opacity hover:opacity-80"
+        style={{ color: "var(--foreground-muted)" }}
+      >
+        <IconChevronLeft className="size-4 opacity-70" />
+        Back to leads
+      </Link>
+
+      {/* Sticky-style header */}
+      <header
+        className="crm-card mb-6 px-4 py-5 sm:mb-8 sm:px-8 sm:py-7"
+        style={{ borderRadius: "16px" }}
+      >
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 flex-1 space-y-3">
+            <h1 className="text-2xl font-bold tracking-tight sm:text-[1.75rem]" style={{ color: "var(--foreground)" }}>
+              {lead.name}
+            </h1>
+            <p className="text-sm font-medium sm:text-[15px]" style={{ color: "var(--foreground-muted)" }}>
+              {lead.company_name ?? "No company on file"}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge status={lead.status} />
+              <PriorityBadge priority={lead.priority} />
+              {lead.follow_up_date &&
+                new Date(lead.follow_up_date) < new Date() &&
+                lead.status !== "converted" &&
+                lead.status !== "lost" && (
+                  <span className="rounded-full border border-amber-200/80 bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-200">
+                    Follow-up overdue
+                  </span>
                 )}
-                <Link
-                  href="/pipeline"
-                  className="rounded-xl border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
-                >
-                  Pipeline
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => setEditOpen((v) => !v)}
-                  className="rounded-xl border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800"
-                >
-                  {editOpen ? "Close editor" : "Edit lead"}
-                </button>
-                <button
-                  type="button"
-                  onClick={removeLead}
-                  className="rounded-xl border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-100"
-                >
-                  Delete
-                </button>
-              </div>
             </div>
           </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
+            {whatsapp && (
+              <a
+                href={whatsapp}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold shadow-sm transition duration-200 hover:-translate-y-px sm:w-auto"
+                style={{
+                  borderColor: "var(--border)",
+                  background: "var(--card)",
+                  color: "var(--foreground)",
+                  boxShadow: "var(--shadow-card)",
+                }}
+              >
+                <IconWhatsApp className="size-4 text-emerald-600 dark:text-emerald-400" />
+                WhatsApp
+              </a>
+            )}
+            <Link
+              href="/pipeline"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold shadow-sm transition duration-200 hover:-translate-y-px sm:w-auto"
+              style={{
+                borderColor: "var(--border)",
+                background: "var(--card)",
+                color: "var(--foreground)",
+                boxShadow: "var(--shadow-card)",
+              }}
+            >
+              <IconColumns className="size-4 text-neutral-900 opacity-80" />
+              Pipeline
+            </Link>
+            <button
+              type="button"
+              onClick={() => setEditOpen((v) => !v)}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-md transition duration-200 hover:-translate-y-px hover:opacity-95 sm:w-auto"
+              style={{ background: "var(--accent)", boxShadow: "var(--shadow-card)" }}
+            >
+              <IconPencil className="size-4 text-white/90" />
+              {editOpen ? "Close editor" : "Edit lead"}
+            </button>
+            <button
+              type="button"
+              onClick={removeLead}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition duration-200 hover:-translate-y-px hover:bg-red-50 dark:hover:bg-red-950/30 sm:w-auto"
+              style={{ borderColor: "var(--border)", color: "#b91c1c" }}
+            >
+              <IconTrash className="size-4" />
+              Delete
+            </button>
+          </div>
         </div>
-      </div>
+      </header>
 
       {err && (
-        <p className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-sm font-semibold text-neutral-900">
+        <p
+          className="mb-6 rounded-2xl border px-4 py-3 text-sm font-semibold"
+          style={{
+            borderColor: "var(--border)",
+            background: "var(--color-background-secondary)",
+            color: "var(--foreground)",
+          }}
+        >
           {err}
         </p>
       )}
@@ -282,13 +377,18 @@ export default function LeadDetailPage() {
       {editOpen && (
         <form
           onSubmit={saveLeadEdit}
-          className="space-y-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
+          className="crm-card mb-8 space-y-6 p-6 sm:p-8"
+          style={{ borderRadius: "16px" }}
         >
-          <h3 className="font-bold text-neutral-900">Edit lead</h3>
-          <p className="text-sm font-medium text-neutral-500">
-            Priority can only be changed here (not on the pipeline). Interested status needs a follow-up date;
-            converted needs payment details.
-          </p>
+          <div>
+            <h3 className="text-lg font-bold" style={{ color: "var(--foreground)" }}>
+              Edit lead
+            </h3>
+            <p className="mt-1 text-sm" style={{ color: "var(--foreground-muted)" }}>
+              Priority can only be changed here (not on the pipeline). Interested status needs a follow-up date;
+              converted needs payment details.
+            </p>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <EditField
               label="Name *"
@@ -313,7 +413,9 @@ export default function LeadDetailPage() {
               onChange={(v) => setEditForm((f) => ({ ...f, phone: v }))}
             />
             <div>
-              <label className="block text-xs font-semibold text-neutral-700">Priority</label>
+              <label className="block text-xs font-semibold" style={{ color: "var(--foreground-muted)" }}>
+                Priority
+              </label>
               <select
                 value={editForm.priority}
                 onChange={(e) =>
@@ -322,7 +424,8 @@ export default function LeadDetailPage() {
                     priority: e.target.value as typeof editForm.priority,
                   }))
                 }
-                className="app-select mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-900"
+                className="app-select mt-1 w-full rounded-xl border px-4 py-2.5 text-sm font-medium"
+                style={inputStyle}
               >
                 <option value="">None</option>
                 <option value="hot">Hot</option>
@@ -350,32 +453,33 @@ export default function LeadDetailPage() {
               value={editForm.source}
               onChange={(v) => setEditForm((f) => ({ ...f, source: v }))}
             />
-            <EditField
-              label="Source detail"
-              value={editForm.source_detail}
-              onChange={(v) => setEditForm((f) => ({ ...f, source_detail: v }))}
-            />
             <div>
-              <label className="block text-xs font-semibold text-neutral-700">Lead type</label>
+              <label className="block text-xs font-semibold" style={{ color: "var(--foreground-muted)" }}>
+                Lead type
+              </label>
               <select
                 value={editForm.lead_type}
                 onChange={(e) =>
                   setEditForm((f) => ({ ...f, lead_type: e.target.value as LeadType }))
                 }
-                className="app-select mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
+                className="app-select mt-1 w-full rounded-xl border px-4 py-2.5 font-medium"
+                style={inputStyle}
               >
                 <option value="inbound">Inbound</option>
                 <option value="outbound">Outbound</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-neutral-700">Status</label>
+              <label className="block text-xs font-semibold" style={{ color: "var(--foreground-muted)" }}>
+                Status
+              </label>
               <select
                 value={editForm.status}
                 onChange={(e) =>
                   setEditForm((f) => ({ ...f, status: e.target.value as LeadStatus }))
                 }
-                className="app-select mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
+                className="app-select mt-1 w-full rounded-xl border px-4 py-2.5 font-medium"
+                style={inputStyle}
               >
                 {STATUSES.map((s) => (
                   <option key={s} value={s}>
@@ -385,13 +489,16 @@ export default function LeadDetailPage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-neutral-700">Assigned to</label>
+              <label className="block text-xs font-semibold" style={{ color: "var(--foreground-muted)" }}>
+                Assigned to
+              </label>
               <select
                 value={editForm.assigned_to}
                 onChange={(e) =>
                   setEditForm((f) => ({ ...f, assigned_to: e.target.value }))
                 }
-                className="app-select mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
+                className="app-select mt-1 w-full rounded-xl border px-4 py-2.5 font-medium"
+                style={inputStyle}
               >
                 <option value="">Unassigned</option>
                 {users.map((u) => (
@@ -417,7 +524,7 @@ export default function LeadDetailPage() {
               onChange={(v) => setEditForm((f) => ({ ...f, timeline: v }))}
             />
             <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-neutral-700">
+              <label className="block text-xs font-semibold" style={{ color: "var(--foreground-muted)" }}>
                 Description / requirements
               </label>
               <textarea
@@ -425,11 +532,12 @@ export default function LeadDetailPage() {
                 value={editForm.description}
                 onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
                 placeholder="What does the lead need? Budget, scope, timeline…"
-                className="mt-1 min-h-[4.5rem] w-full resize-y rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-900 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                className="mt-1 min-h-[4.5rem] w-full resize-y rounded-xl border px-4 py-2.5 text-sm font-medium focus:outline-none"
+                style={{ ...inputStyle, boxShadow: "none" }}
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-neutral-700">
+              <label className="block text-xs font-semibold" style={{ color: "var(--foreground-muted)" }}>
                 Follow-up date / time
               </label>
               <input
@@ -438,7 +546,8 @@ export default function LeadDetailPage() {
                 onChange={(e) =>
                   setEditForm((f) => ({ ...f, follow_up_date: e.target.value }))
                 }
-                className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
+                className="mt-1 w-full rounded-xl border px-4 py-2.5 font-medium focus:outline-none"
+                style={inputStyle}
               />
             </div>
             <EditField
@@ -456,14 +565,16 @@ export default function LeadDetailPage() {
             <button
               type="submit"
               disabled={savingEdit}
-              className="rounded-xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              className="rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
+              style={{ background: "var(--accent)" }}
             >
               {savingEdit ? "Saving…" : "Save changes"}
             </button>
             <button
               type="button"
               onClick={() => setEditOpen(false)}
-              className="rounded-xl border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
+              className="rounded-xl border px-5 py-2.5 text-sm font-semibold transition hover:opacity-90"
+              style={{ borderColor: "var(--border)", color: "var(--foreground)" }}
             >
               Cancel
             </button>
@@ -471,102 +582,202 @@ export default function LeadDetailPage() {
         </form>
       )}
 
-      <div className="grid gap-8 lg:grid-cols-5">
-        <div className="rounded-xl border-[0.5px] border-neutral-200 bg-white p-4 shadow-sm lg:col-span-2">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-neutral-500">Contact</h3>
-          <dl className="mt-3 space-y-2 text-[13px] leading-snug">
-            <Row label="Email" value={lead.email} />
-            <Row label="Phone" value={lead.phone} />
-            <Row label="Location" value={lead.location} />
-            <Row label="Website" value={lead.website_url} link />
-            <Row label="LinkedIn" value={lead.linkedin_url} link />
-            <Row label="Source" value={lead.source} />
-            <Row label="Budget" value={lead.budget} />
-            <Row label="Timeline" value={lead.timeline} />
-            <Row
-              label="Follow-up"
-              value={lead.follow_up_date ? formatAppDateTime(lead.follow_up_date) : null}
-            />
-            <Row
-              label="Payment"
-              value={
-                lead.payment_amount
-                  ? `${lead.payment_amount} · ${lead.payment_method ?? ""}`
-                  : null
-              }
-            />
-          </dl>
-          <div className="mt-3 border-t border-neutral-200 pt-3">
-            <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Description</p>
-            {(lead.description || "").trim() ? (
-              <p className="mt-2 whitespace-pre-wrap text-[13px] leading-relaxed text-neutral-900">
-                {lead.description}
-              </p>
-            ) : (
-              <p className="mt-2 text-[13px] text-neutral-400">No description added</p>
-            )}
-          </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-8">
+        {/* LEFT ~60% — Contact + Description */}
+        <div className="space-y-6">
+          <section className="crm-card p-6 sm:p-7" style={{ borderRadius: "16px" }}>
+            <h2
+              className="text-[11px] font-semibold uppercase tracking-[0.1em]"
+              style={{ color: "var(--foreground-muted)" }}
+            >
+              Contact
+            </h2>
+            <div className="mt-5 divide-y divide-neutral-200/80 dark:divide-zinc-700/80">
+              <ContactIconRow icon={<IconMail />} label="Email" value={lead.email} href={lead.email ? `mailto:${lead.email}` : null} />
+              <ContactIconRow icon={<IconPhone />} label="Phone" value={lead.phone} href={lead.phone ? `tel:${lead.phone}` : null} />
+              <ContactIconRow icon={<IconMapPin />} label="Location" value={lead.location} />
+              <ContactIconRow
+                icon={<IconGlobe />}
+                label="Website"
+                value={lead.website_url}
+                href={lead.website_url || null}
+                external
+              />
+              <ContactIconRow
+                icon={<IconLinkedIn />}
+                label="LinkedIn"
+                value={lead.linkedin_url}
+                href={lead.linkedin_url || null}
+                external
+              />
+              <ContactIconRow icon={<IconTag />} label="Source" value={lead.source} />
+              <ContactIconRow
+                icon={<IconCalendar />}
+                label="Follow-up"
+                value={lead.follow_up_date ? formatRemarkTimestamp(lead.follow_up_date) : null}
+              />
+            </div>
+
+            <div
+              className="mt-8 rounded-2xl p-5"
+              style={{ background: "var(--color-background-secondary)" }}
+            >
+              <h3
+                className="text-[11px] font-semibold uppercase tracking-[0.1em]"
+                style={{ color: "var(--foreground-muted)" }}
+              >
+                Description
+              </h3>
+              {(lead.description || "").trim() ? (
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed" style={{ color: "var(--foreground)" }}>
+                  {lead.description}
+                </p>
+              ) : (
+                <p className="mt-3 text-sm" style={{ color: "var(--foreground-muted)" }}>
+                  No description added
+                </p>
+              )}
+            </div>
+          </section>
         </div>
 
-        <div className="space-y-6 lg:col-span-3">
-          <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-            <h3 className="text-sm font-bold uppercase tracking-wide text-neutral-500">Activity</h3>
-            <p className="mt-2 text-[12px] font-medium text-neutral-500">
-              Add a remark — it is saved and appears below as activity with the full text.
-            </p>
-            <div className="mt-3">
+        {/* RIGHT ~40% — Activity + sticky remark */}
+        <div className="lg:sticky lg:top-4 lg:self-start">
+          <section
+            className="crm-card flex max-h-[min(720px,calc(100vh-8rem))] flex-col overflow-hidden"
+            style={{ borderRadius: "16px" }}
+          >
+            <div className="border-b px-5 py-4 sm:px-6" style={{ borderColor: "var(--border)" }}>
+              <h2 className="text-base font-semibold" style={{ color: "var(--foreground)" }}>
+                Activity
+              </h2>
+              <p className="mt-0.5 text-xs" style={{ color: "var(--foreground-muted)" }}>
+                Remarks and updates in one timeline
+              </p>
+            </div>
+
+            <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
+              {timeline.length === 0 ? (
+                <p className="py-8 text-center text-sm" style={{ color: "var(--foreground-muted)" }}>
+                  No activity yet. Add a note below.
+                </p>
+              ) : (
+                timeline.map((item) =>
+                  item.kind === "remark" ? (
+                    <div key={item.key} className="flex gap-3">
+                      <div
+                        className="flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                        style={{
+                          background: "var(--accent-subtle)",
+                          color: "var(--accent)",
+                        }}
+                      >
+                        {userInitials(item.remark.user_name || "U")}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-baseline justify-between gap-2">
+                          <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+                            {item.remark.user_name || "Team"}
+                          </span>
+                          <time className="text-[11px] tabular-nums" style={{ color: "var(--foreground-muted)" }}>
+                            {formatRemarkTimestamp(item.remark.created_at)}
+                          </time>
+                        </div>
+                        <p className="mt-1 text-[11px] font-medium uppercase tracking-wide" style={{ color: "var(--accent)" }}>
+                          Remark
+                        </p>
+                        <div
+                          className="mt-2 rounded-2xl rounded-tl-md px-4 py-3 text-sm leading-relaxed shadow-sm"
+                          style={{
+                            background: "var(--card)",
+                            border: "1px solid color-mix(in srgb, var(--border) 70%, transparent)",
+                            color: "var(--foreground)",
+                          }}
+                        >
+                          {item.remark.body}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div key={item.key} className="flex gap-3">
+                      <div
+                        className="flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                        style={{
+                          background: "var(--color-background-info)",
+                          color: "var(--color-text-info)",
+                        }}
+                      >
+                        {userInitials(item.activity.user_name || "U")}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-baseline justify-between gap-2">
+                          <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+                            {item.activity.user_name || `User #${item.activity.user_id}`}
+                          </span>
+                          <time className="text-[11px] tabular-nums" style={{ color: "var(--foreground-muted)" }}>
+                            {formatRemarkTimestamp(item.activity.created_at)}
+                          </time>
+                        </div>
+                        <p className="mt-1 text-xs" style={{ color: "var(--foreground-muted)" }}>
+                          {formatActivityLabel(item.activity.action)}
+                        </p>
+                        {item.activity.details ? (
+                          <div
+                            className="mt-2 rounded-xl px-3 py-2.5 font-mono text-[11px] leading-relaxed whitespace-pre-wrap"
+                            style={{
+                              background: "var(--color-background-secondary)",
+                              color: "var(--foreground)",
+                            }}
+                          >
+                            {formatActivityDetail(item.activity.details)}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  )
+                )
+              )}
+            </div>
+
+            <div
+              className="shrink-0 border-t p-4 sm:p-5"
+              style={{ borderColor: "var(--border)", background: "var(--card)" }}
+            >
+              <label className="sr-only" htmlFor="lead-remark">
+                Add remark
+              </label>
               <textarea
+                id="lead-remark"
                 rows={3}
                 value={remarkDraft}
                 onChange={(e) => setRemarkDraft(e.target.value)}
-                placeholder="Add a remark..."
-                className="w-full resize-y rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                placeholder="Add a remark…"
+                className="w-full resize-none rounded-xl border px-4 py-3 text-sm transition placeholder:opacity-60 focus:outline-none"
+                style={inputStyle}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    submitRemark();
+                  }
+                }}
               />
-              <button
-                type="button"
-                onClick={submitRemark}
-                disabled={savingRemark || !remarkDraft.trim()}
-                className="mt-2 rounded-xl bg-neutral-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
-              >
-                {savingRemark ? "Saving…" : "Add remark"}
-              </button>
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <span className="hidden text-[11px] sm:inline" style={{ color: "var(--foreground-muted)" }}>
+                  Cmd/Ctrl + Enter to send
+                </span>
+                <button
+                  type="button"
+                  onClick={submitRemark}
+                  disabled={savingRemark || !remarkDraft.trim()}
+                  className="ml-auto inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
+                  style={{ background: "var(--accent)" }}
+                >
+                  <IconSend className="size-4 opacity-90" />
+                  {savingRemark ? "Sending…" : "Add remark"}
+                </button>
+              </div>
             </div>
-            <div className="mt-6 border-t border-neutral-100 pt-6">
-            <ul className="space-y-3">
-              {activities.map((a) => (
-                <li key={a.id} className="flex gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-[11px] font-bold text-neutral-800">
-                    {userInitials(a.user_name || "U")}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="text-[13px] font-medium text-neutral-900">
-                        {a.user_name || `User #${a.user_id}`}
-                      </span>
-                      <span className="shrink-0 text-right text-[12px] text-neutral-500">
-                        {formatRemarkTimestamp(a.created_at)}
-                      </span>
-                    </div>
-                    <p className="mt-0.5 text-[12px] text-neutral-500">
-                      {formatActivityLabel(a.action)}
-                    </p>
-                    {a.details ? (
-                      <div
-                        className="mt-2 rounded-lg p-2 text-[12px] leading-relaxed text-neutral-800"
-                        style={{ background: "var(--color-background-secondary)" }}
-                      >
-                        {a.details}
-                      </div>
-                    ) : null}
-                  </div>
-                </li>
-              ))}
-              {activities.length === 0 && (
-                <li className="text-sm font-medium text-neutral-500">No activity yet.</li>
-              )}
-            </ul>
-            </div>
-          </div>
+          </section>
         </div>
       </div>
     </div>
@@ -588,40 +799,67 @@ function EditField({
 }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-neutral-700">{label}</label>
+      <label className="block text-xs font-semibold" style={{ color: "var(--foreground-muted)" }}>
+        {label}
+      </label>
       <input
         type={type}
         required={required}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
+        className="mt-1 w-full rounded-xl border px-4 py-2.5 text-sm font-medium focus:outline-none"
+        style={{
+          borderColor: "var(--border)",
+          background: "var(--card)",
+          color: "var(--foreground)",
+        }}
       />
     </div>
   );
 }
 
-function Row({
+function ContactIconRow({
+  icon,
   label,
   value,
-  link,
+  href,
+  external,
 }: {
+  icon: ReactNode;
   label: string;
   value: string | null;
-  link?: boolean;
+  href?: string | null;
+  external?: boolean;
 }) {
-  if (!value) return null;
+  const empty = value == null || !String(value).trim();
+  const display = empty ? "—" : String(value).trim();
+
   return (
-    <div className="flex justify-between gap-4">
-      <dt className="text-[13px] text-neutral-500">{label}</dt>
-      <dd className="text-right text-[13px] font-normal text-neutral-900">
-        {link ? (
-          <a href={value} className="url-link" target="_blank" rel="noreferrer">
-            {value}
-          </a>
-        ) : (
-          value
-        )}
-      </dd>
+    <div className="flex gap-4 py-4 first:pt-0 last:pb-0">
+      <div className="mt-0.5 shrink-0 opacity-70" style={{ color: "var(--foreground-muted)" }}>
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--foreground-muted)" }}>
+          {label}
+        </p>
+        <div className="mt-1 text-sm break-words" style={{ color: empty ? "var(--foreground-muted)" : "var(--foreground)" }}>
+          {empty ? (
+            display
+          ) : href ? (
+            <a
+              href={href}
+              className="font-medium underline underline-offset-2 transition opacity-90 hover:opacity-100"
+              style={{ color: "var(--accent)" }}
+              {...(external ? { target: "_blank", rel: "noreferrer" } : {})}
+            >
+              {display}
+            </a>
+          ) : (
+            display
+          )}
+        </div>
+      </div>
     </div>
   );
 }

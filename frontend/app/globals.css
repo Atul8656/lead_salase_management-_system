@@ -1,13 +1,23 @@
 @import "tailwindcss";
 
+/* Fixed light theme: white surfaces, black text (boss preference). */
 :root {
+  --page-bg: #ffffff;
   --background: #ffffff;
   --foreground: #0a0a0a;
+  --foreground-muted: #525252;
   --muted: #737373;
   --border: #e5e5e5;
   --card: #ffffff;
-  --ring: rgba(10, 10, 10, 0.12);
   --color-background-secondary: #f5f5f5;
+  --color-border-tertiary: #e8e8e8;
+  --color-background-info: #f0f0f0;
+  --color-text-info: #0a0a0a;
+  --accent: #0a0a0a;
+  --accent-hover: #000000;
+  --accent-subtle: rgba(10, 10, 10, 0.08);
+  --shadow-card: 0 1px 2px rgba(10, 10, 10, 0.04), 0 4px 12px rgba(10, 10, 10, 0.06);
+  --shadow-hover: 0 2px 8px rgba(10, 10, 10, 0.08);
 }
 
 @theme inline {
@@ -16,16 +26,27 @@
 }
 
 body {
-  background: var(--background);
+  background: var(--page-bg);
   color: var(--foreground);
   font-family: "Inter", system-ui, -apple-system, sans-serif;
   overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* In-app links: bold/semibold, clear underline for clicks & URLs */
+/* Space for fixed mobile bottom nav + iOS home indicator */
+.pb-mobile-nav {
+  padding-bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 768px) {
+  .pb-mobile-nav {
+    padding-bottom: 0;
+  }
+}
+
 .app-link {
   font-weight: 600;
-  color: #0a0a0a;
+  color: var(--foreground);
   text-decoration: underline;
   text-decoration-color: #a3a3a3;
   text-underline-offset: 3px;
@@ -37,10 +58,9 @@ body {
   text-decoration-color: #0a0a0a;
 }
 
-/* External / raw URLs in content */
 a.url-link {
   font-weight: 600;
-  color: #0a0a0a;
+  color: var(--foreground);
   text-decoration: underline;
   text-decoration-color: #d4d4d4;
   text-underline-offset: 3px;
@@ -49,6 +69,18 @@ a.url-link {
 
 a.url-link:hover {
   text-decoration-color: #0a0a0a;
+}
+
+.crm-card {
+  background: var(--card);
+  border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.crm-card:hover {
+  box-shadow: var(--shadow-hover);
 }
 
 .glass {
@@ -73,7 +105,6 @@ a.url-link:hover {
   animation: fadeIn 0.45s ease-out forwards;
 }
 
-/* Native selects: match B/W theme (no default blue focus ring) */
 select.app-select,
 select {
   appearance: auto;
@@ -85,7 +116,7 @@ select.app-select:focus,
 select:focus {
   outline: none;
   border-color: #0a0a0a;
-  box-shadow: 0 0 0 1px #0a0a0a;
+  box-shadow: 0 0 0 2px rgba(10, 10, 10, 0.12);
 }
 
 select.app-select option,

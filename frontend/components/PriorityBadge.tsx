@@ -1,10 +1,6 @@
 import type { LeadPriority } from "@/lib/types";
-
-const styles: Record<NonNullable<LeadPriority>, { bg: string; text: string; label: string }> = {
-  hot: { bg: "#FCEBEB", text: "#A32D2D", label: "HOT" },
-  warm: { bg: "#FAEEDA", text: "#854F0B", label: "WARM" },
-  cold: { bg: "#E6F1FB", text: "#185FA5", label: "COLD" },
-};
+import { coerceLeadPriority } from "@/lib/leadNormalize";
+import { LEAD_PRIORITY } from "@/lib/leadPriorityTheme";
 
 export function PriorityBadge({
   priority,
@@ -13,18 +9,27 @@ export function PriorityBadge({
   priority: LeadPriority | null | undefined;
   size?: "sm" | "xs";
 }) {
-  if (!priority || !(priority in styles)) return null;
-  const s = styles[priority as NonNullable<LeadPriority>];
+  const p = coerceLeadPriority(priority);
+  if (!p || !(p in LEAD_PRIORITY)) return null;
+  const t = LEAD_PRIORITY[p];
   const pad = size === "xs" ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-0.5 text-[10px]";
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full font-bold uppercase tracking-wide ${pad}`}
-      style={{ backgroundColor: s.bg, color: s.text }}
+      className={`inline-flex items-center gap-1 rounded-full border font-bold uppercase tracking-wide ${pad}`}
+      style={{
+        backgroundColor: t.badgeBg,
+        color: t.accent,
+        borderColor: t.badgeBorder,
+      }}
     >
-      {priority === "hot" && (
-        <span className="inline-block h-1.5 w-1.5 rounded-sm bg-current opacity-90" aria-hidden />
+      {p === "hot" && (
+        <span
+          className="inline-block size-1.5 shrink-0 rounded-full opacity-95"
+          style={{ backgroundColor: t.accent }}
+          aria-hidden
+        />
       )}
-      {s.label}
+      {t.label}
     </span>
   );
 }

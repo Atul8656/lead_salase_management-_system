@@ -6,6 +6,10 @@ const BACKEND =
 
 const nextConfig: NextConfig = {
   devIndicators: false,
+  /** Expose CRA-style name so REACT_APP_API_URL in .env.local is available in the browser bundle */
+  env: {
+    REACT_APP_API_URL: process.env.REACT_APP_API_URL ?? "",
+  },
   async rewrites() {
     return [
       {

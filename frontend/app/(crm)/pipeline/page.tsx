@@ -30,9 +30,11 @@ export default function PipelinePage() {
     <div className="mx-auto max-w-[1600px] space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-neutral-900">Sales pipeline</h2>
-        <p className="text-sm font-medium text-neutral-500">
-          Drag one stage at a time (no skipping). Mark <strong className="font-semibold text-neutral-800">Lost</strong> from any open stage.{" "}
-          <strong className="font-semibold text-neutral-800">Converted</strong> only from Follow-up. Interested sets a follow-up date. Converted requires payment details.
+        <p className="text-sm font-medium leading-relaxed text-neutral-500">
+          Drag one stage at a time (no skipping). Mark{" "}
+          <strong className="font-semibold text-neutral-800">Lost</strong> from any open stage.{" "}
+          <strong className="font-semibold text-neutral-800">Converted</strong> only from Follow-up. Interested sets a
+          follow-up date. Converted requires payment details.
         </p>
       </div>
       {err && (

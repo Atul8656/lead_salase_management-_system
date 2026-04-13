@@ -42,14 +42,32 @@ function buildLeadQuery(params?: LeadListParams): string {
   return qs ? `?${qs}` : "";
 }
 
+/** Default when no public env is set (local uvicorn). */
+const DEFAULT_API_BASE = "http://127.0.0.1:8000";
+
 /**
- * If NEXT_PUBLIC_API_URL is set → call that host directly.
- * If empty/unset → use same-origin `/api/...` (Next.js rewrites to BACKEND_PROXY_URL, default :8000).
+ * Resolve API origin for browser fetch:
+ * - NEXT_PUBLIC_API_URL or REACT_APP_API_URL (see next.config env) → use that (e.g. Cloudflare tunnel)
+ * - else → http://127.0.0.1:8000
  */
 function getApiBase(): string {
-  const v = process.env.NEXT_PUBLIC_API_URL?.trim();
+  const v =
+    process.env.NEXT_PUBLIC_API_URL?.trim() || process.env.REACT_APP_API_URL?.trim();
   if (v) return v.replace(/\/$/, "");
-  return "";
+  return DEFAULT_API_BASE.replace(/\/$/, "");
+}
+
+let apiBaseLogged = false;
+function logApiBaseOnce(): void {
+  if (typeof window === "undefined" || apiBaseLogged) return;
+  apiBaseLogged = true;
+  const base = getApiBase();
+  const source = process.env.NEXT_PUBLIC_API_URL?.trim()
+    ? "NEXT_PUBLIC_API_URL"
+    : process.env.REACT_APP_API_URL?.trim()
+      ? "REACT_APP_API_URL"
+      : `default (${DEFAULT_API_BASE})`;
+  console.info(`[SALENLO] API base URL: ${base} (from ${source})`);
 }
 
 /** Full URL or path for fetch, e.g. /api/auth/login */
@@ -110,6 +128,7 @@ export async function api<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
+  logApiBaseOnce();
   const token = getToken();
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
@@ -137,6 +156,7 @@ export async function api<T>(
 }
 
 export async function loginRequest(usernameOrEmail: string, password: string) {
+  logApiBaseOnce();
   const body = new URLSearchParams();
   body.set("username", usernameOrEmail);
   body.set("password", password);
@@ -164,6 +184,7 @@ export async function registerRequest(payload: {
   email: string;
   full_name: string;
 }): Promise<UserRegisteredResponse> {
+  logApiBaseOnce();
   const res = await safeFetch(apiUrl("/api/auth/register"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -242,6 +263,7 @@ export const followupsApi = {
 };
 
 export async function downloadLeadsCsv() {
+  logApiBaseOnce();
   const token = getToken();
   const res = await safeFetch(apiUrl("/api/leads/export/csv"), {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -256,20 +278,5 @@ export async function downloadLeadsCsv() {
   URL.revokeObjectURL(url);
 }
 
-export async function downloadImportSampleCsv() {
-  const token = getToken();
-  const res = await safeFetch(apiUrl("/api/leads/import/sample"), {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!res.ok) throw new Error(await parseError(res));
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "leads_import_sample.csv";
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-/** Resolved API base for debugging in dev only (avoid showing in end-user UI). */
-export const API = getApiBase() || "";
+/** Resolved API base (same logic as fetch). */
+export const API = getApiBase();

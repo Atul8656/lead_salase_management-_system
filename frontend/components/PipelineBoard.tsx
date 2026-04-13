@@ -16,8 +16,8 @@ import {
 } from "@dnd-kit/core";
 import { leadsApi } from "@/lib/api";
 import type { Lead, LeadPriority, LeadStatus } from "@/lib/types";
-import { coerceLeadStatus } from "@/lib/leadNormalize";
-import { PriorityBadge } from "@/components/PriorityBadge";
+import { coerceLeadPriority, coerceLeadStatus } from "@/lib/leadNormalize";
+import { LEAD_PRIORITY } from "@/lib/leadPriorityTheme";
 
 const COLUMNS: { id: LeadStatus; title: string }[] = [
   { id: "new", title: "New" },
@@ -30,7 +30,8 @@ const COLUMNS: { id: LeadStatus; title: string }[] = [
 
 function normalizeLeadRow(l: Lead): Lead {
   const status = coerceLeadStatus(l.status as unknown as string);
-  return { ...l, status };
+  const priority = coerceLeadPriority(l.priority as string | null | undefined);
+  return { ...l, status, priority };
 }
 
 const PRI_RANK: Record<string, number> = { hot: 0, warm: 1, cold: 2 };
@@ -42,6 +43,16 @@ function sortLeadsByPriorityThenDate(leads: Lead[]): Lead[] {
     if (pa !== pb) return pa - pb;
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
+}
+
+function PipelinePriorityLabel({ priority }: { priority: LeadPriority | null | undefined }) {
+  if (!priority || !LEAD_PRIORITY[priority]) return null;
+  const t = LEAD_PRIORITY[priority];
+  return (
+    <span className="shrink-0 text-[11px] font-medium" style={{ color: t.accent }}>
+      {t.label}
+    </span>
+  );
 }
 
 function DroppableCol({
@@ -57,7 +68,7 @@ function DroppableCol({
   return (
     <div
       ref={setNodeRef}
-      className={`flex min-h-[420px] w-64 shrink-0 flex-col rounded-xl border bg-white p-2 transition-opacity ${
+      className={`flex min-h-[min(420px,55dvh)] w-[min(16.5rem,calc(100vw-2.5rem))] shrink-0 flex-col rounded-xl border bg-white p-2 transition-opacity sm:min-h-[420px] sm:w-64 ${
         dimmed ? "opacity-40" : ""
       } ${isOver ? "border-neutral-900 ring-1 ring-neutral-900/20" : "border-neutral-200"}`}
     >
@@ -77,19 +88,26 @@ function DraggableCard({ lead }: { lead: Lead }) {
       }
     : undefined;
 
+  const pr = coerceLeadPriority(lead.priority);
+  const borderAccent =
+    pr && LEAD_PRIORITY[pr]
+      ? {
+          borderLeftWidth: "3px",
+          borderLeftColor: LEAD_PRIORITY[pr].accent,
+          borderLeftStyle: "solid" as const,
+        }
+      : {};
+
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{ ...style, ...borderAccent }}
       {...listeners}
       {...attributes}
-      className={`relative mb-2 flex gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-2 pr-2 pt-6 text-sm shadow-sm ${
+      className={`relative mb-2 flex gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-2 text-sm shadow-sm ${
         isDragging ? "opacity-60" : ""
       } cursor-grab active:cursor-grabbing`}
     >
-      <div className="pointer-events-none absolute right-1.5 top-1.5 z-10">
-        <PriorityBadge priority={lead.priority as LeadPriority | null | undefined} size="xs" />
-      </div>
       <div
         className="mt-0.5 flex h-8 w-6 shrink-0 items-center justify-center rounded border border-neutral-300 bg-white text-neutral-500"
         aria-hidden
@@ -101,14 +119,17 @@ function DraggableCard({ lead }: { lead: Lead }) {
         </span>
       </div>
       <div className="min-w-0 flex-1">
-        <Link
-          href={`/leads/${lead.id}`}
-          className="app-link text-sm font-semibold leading-snug"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {lead.name}
-        </Link>
+        <div className="flex items-start justify-between gap-2">
+          <Link
+            href={`/leads/${lead.id}`}
+            className="app-link min-w-0 text-sm font-semibold leading-snug"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {lead.name}
+          </Link>
+          <PipelinePriorityLabel priority={pr} />
+        </div>
         <p className="mt-1 text-xs font-medium text-neutral-500">{lead.company_name ?? "—"}</p>
         <Link
           href={`/leads/${lead.id}`}

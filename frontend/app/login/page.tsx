@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -28,9 +29,16 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-neutral-50 px-4">
-      <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm">
-        <h1 className="text-center text-2xl font-bold text-neutral-900">Sign in</h1>
+    <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-neutral-50 px-4 py-10">
+      <div className="mb-8 flex flex-col items-center gap-2 text-center">
+        <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+          <Image src="/brand-mark.png" alt="SALENLO" width={32} height={32} className="object-contain" />
+        </div>
+        <p className="text-xl font-bold tracking-tight text-neutral-900">SALENLO</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Sales &amp; lead management</p>
+      </div>
+      <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm sm:p-8">
+        <h1 className="text-center text-xl font-bold text-neutral-900 sm:text-2xl">Sign in</h1>
         <p className="mt-2 text-center text-sm font-medium text-neutral-600">
           Sign in with the email and password for your account.
         </p>

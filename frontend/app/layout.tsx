@@ -1,13 +1,20 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Lead CRM | Sales & Lead Management",
-  description: "Lead and sales pipeline CRM",
+  title: "SALENLO | Sales & lead management",
+  description: "SALENLO — sales pipeline and lead management for your team.",
+  applicationName: "SALENLO",
   icons: {
     icon: "/brand-mark.png",
     apple: "/brand-mark.png",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#ffffff",
 };
 
 export default function RootLayout({

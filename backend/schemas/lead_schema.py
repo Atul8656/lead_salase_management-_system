@@ -5,6 +5,17 @@ from models.lead import LeadStatus, LeadType
 
 LeadPriorityOpt = Optional[Literal["hot", "warm", "cold"]]
 
+
+def _coerce_priority_value(v):
+    if v == "" or v is None:
+        return None
+    if isinstance(v, str):
+        s = v.strip().lower()
+        if s in ("hot", "warm", "cold"):
+            return s
+    return v
+
+
 class LeadBase(BaseModel):
     name: str
     email: Optional[EmailStr] = None
@@ -26,6 +37,12 @@ class LeadBase(BaseModel):
     payment_amount: float = 0.0
     payment_method: Optional[str] = None
     follow_up_date: Optional[datetime] = None
+
+    @field_validator("priority", mode="before")
+    @classmethod
+    def normalize_priority_base(cls, v):
+        return _coerce_priority_value(v)
+
 
 class LeadCreate(LeadBase):
     """assigned_to defaults to creator when omitted. Phone is required."""
@@ -61,10 +78,8 @@ class LeadUpdate(BaseModel):
 
     @field_validator("priority", mode="before")
     @classmethod
-    def empty_priority(cls, v):
-        if v == "" or v is None:
-            return None
-        return v
+    def normalize_priority_update(cls, v):
+        return _coerce_priority_value(v)
 
 class Lead(LeadBase):
     id: int
