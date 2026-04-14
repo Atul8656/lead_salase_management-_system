@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { leadsApi, usersApi } from "@/lib/api";
-import type { LeadStatus, LeadType, User } from "@/lib/types";
+import type { LeadPriority, LeadStatus, LeadType, User } from "@/lib/types";
 import { CustomSelect } from "@/components/CustomSelect";
 
 function memberLabel(u: User) {
@@ -49,7 +49,7 @@ export default function NewLeadPage() {
     payment_amount: "",
     payment_method: "",
     follow_up_date: "",
-    priority: "" as "" | "hot" | "warm" | "cold",
+    priority: "" as "" | LeadPriority,
   });
 
   useEffect(() => {
@@ -290,9 +290,9 @@ export default function NewLeadPage() {
               }
               options={[
                 { value: "", label: "None" },
-                { value: "hot", label: "Hot" },
-                { value: "warm", label: "Warm" },
-                { value: "cold", label: "Cold" },
+                { value: "HOT", label: "Hot" },
+                { value: "WARM", label: "Warm" },
+                { value: "COLD", label: "Cold" },
               ]}
             />
             </div>

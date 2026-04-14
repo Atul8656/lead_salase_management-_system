@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { leadsApi, usersApi } from "@/lib/api";
-import type { ActivityItem, Lead, LeadRemark, LeadStatus, LeadType, User } from "@/lib/types";
+import type { ActivityItem, Lead, LeadPriority, LeadRemark, LeadStatus, LeadType, User } from "@/lib/types";
 import { formatActivityDetail } from "@/lib/formatActivityDetail";
 import { formatRemarkTimestamp } from "@/lib/formatDate";
 import { userInitials } from "@/lib/userDisplay";
@@ -166,7 +166,7 @@ export default function LeadDetailPage() {
     budget: "",
     timeline: "",
     description: "",
-    priority: "" as "" | "hot" | "warm" | "cold",
+    priority: "" as "" | LeadPriority,
     payment_amount: "",
     payment_method: "",
     follow_up_date: "",
