@@ -44,7 +44,11 @@ function buildLeadQuery(params?: LeadListParams): string {
 }
 
 /** Default when no public env is set (local uvicorn). */
-const DEFAULT_API_BASE = "https://lead-salal-management.onrender.com";
+/** 
+ * Default to empty string for relative paths. 
+ * This leverages the proxy/rewrite in next.config.js and avoids CORS issues.
+ */
+const DEFAULT_API_BASE = "";
 
 /**
  * Resolve API origin for browser fetch:

@@ -19,8 +19,7 @@ _cors = list(dict.fromkeys([*_default_origins, *_env_origins]))
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors,
-    allow_origin_regex=r"https://[a-z0-9\-]+\.trycloudflare\.com",
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
