@@ -127,7 +127,7 @@ function MobileNavIcon({
   }
 }
 
-const mobileNavItems: { href: string; label: string; icon: "home" | "leads" | "pipeline" | "followups" | "team" }[] = [
+const mobileNavItems: { href: string; label: string; icon: "home" | "leads" | "pipeline" | "followups" | "team" | "todo" }[] = [
   { href: "/dashboard", label: "Home", icon: "home" },
   { href: "/leads", label: "Leads", icon: "leads" },
   { href: "/pipeline", label: "Board", icon: "pipeline" },
