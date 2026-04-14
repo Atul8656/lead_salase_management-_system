@@ -2,7 +2,7 @@
   "name": "salenlo-workspace",
   "private": true,
   "description": "Convenience scripts for SALENLO monorepo (optional)",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "scripts": {
     "tunnel": "cloudflared tunnel --url http://localhost:8000",
     "prepare": "husky",
