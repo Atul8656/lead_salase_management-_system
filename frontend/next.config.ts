@@ -6,6 +6,7 @@ const BACKEND =
   process.env.BACKEND_PROXY_URL?.trim() || "https://lead-salal-management.onrender.com";
 
 const nextConfig: NextConfig = {
+  turbopack: {},
   devIndicators: false,
   outputFileTracingRoot: path.join(__dirname, "../"),
   /** Expose CRA-style name so REACT_APP_API_URL in .env.local is available in the browser bundle */
