@@ -2,7 +2,6 @@ const path = require("path");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  turbopack: {},
   devIndicators: false,
   outputFileTracingRoot: path.join(__dirname, "../"),
 
@@ -14,6 +13,7 @@ const nextConfig = {
   async rewrites() {
     const BACKEND =
       process.env.BACKEND_PROXY_URL?.trim() || "https://lead-salal-management.onrender.com";
+
     return [
       {
         source: "/api/:path*",
