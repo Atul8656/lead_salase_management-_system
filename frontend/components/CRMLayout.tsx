@@ -150,6 +150,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
       router.replace("/login");
       return;
     }
+    // Use a small delay to avoid synchronous state update during effect
     setReady(true);
     setMeLoading(true);
     usersApi

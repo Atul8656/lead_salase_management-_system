@@ -17,12 +17,14 @@ export default function UserAvatar({
   sizeClass = "h-10 w-10",
   textClass = "text-sm",
 }: Props) {
-  const [imgErr, setImgErr] = useState(false);
   const url = user?.avatar_url?.trim();
+  const [imgErr, setImgErr] = useState(false);
+  const [currentUrl, setCurrentUrl] = useState(url);
 
-  useEffect(() => {
+  if (url !== currentUrl) {
+    setCurrentUrl(url);
     setImgErr(false);
-  }, [url]);
+  }
 
   const letterBubble = `flex ${sizeClass} shrink-0 items-center justify-center rounded-full bg-neutral-900 font-bold text-white ring-1 ring-neutral-200 ${textClass}`;
 

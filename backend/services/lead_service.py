@@ -13,7 +13,12 @@ from sqlalchemy.orm import Session, joinedload
 from models.lead import Lead, LeadStatus, LeadType
 from models.lead_remark import LeadRemark
 from models.user import User, UserRole
-from schemas.lead_schema import LeadCreate, LeadUpdate, PipelineMove
+from schemas.lead_schema import (
+    LeadCreate,
+    LeadUpdate,
+    PipelineMove,
+    LeadRemarkCreate,
+)
 from services import activity_service
 
 
@@ -212,7 +217,7 @@ def list_lead_remarks(db: Session, lead_id: int):
     )
 
 
-def add_lead_remark(db: Session, lead_id: int, user_id: int, data: lead_schema.LeadRemarkCreate) -> LeadRemark:
+def add_lead_remark(db: Session, lead_id: int, user_id: int, data: LeadRemarkCreate) -> LeadRemark:
     text = (data.body or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="Remark cannot be empty")

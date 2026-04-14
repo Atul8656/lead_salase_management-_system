@@ -26,14 +26,17 @@ export const FilterPopover: React.FC<FilterPopoverProps> = ({
   const [shouldAnimate, setShouldAnimate] = useState(false);
 
   // Animate badge on count change
+  if (activeCount !== prevCount) {
+    setPrevCount(activeCount);
+    setShouldAnimate(true);
+  }
+
   useEffect(() => {
-    if (activeCount !== prevCount) {
-      setShouldAnimate(true);
+    if (shouldAnimate) {
       const t = setTimeout(() => setShouldAnimate(false), 300);
-      setPrevCount(activeCount);
       return () => clearTimeout(t);
     }
-  }, [activeCount, prevCount]);
+  }, [shouldAnimate]);
 
   const handleApply = useCallback(() => {
     onApply();
