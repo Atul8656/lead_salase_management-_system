@@ -9,10 +9,12 @@ const nextConfig: NextConfig = {
   turbopack: {},
   devIndicators: false,
   outputFileTracingRoot: path.join(__dirname, "../"),
-  /** Expose CRA-style name so REACT_APP_API_URL in .env.local is available in the browser bundle */
+
+  /** Expose API URL to frontend */
   env: {
     REACT_APP_API_URL: process.env.REACT_APP_API_URL ?? "",
   },
+
   async rewrites() {
     return [
       {
@@ -20,12 +22,6 @@ const nextConfig: NextConfig = {
         destination: `${BACKEND.replace(/\/$/, "")}/api/:path*`,
       },
     ];
-  },
-  webpack: (config, { dev }) => {
-    if (dev) {
-      config.cache = false;
-    }
-    return config;
   },
 };
 
