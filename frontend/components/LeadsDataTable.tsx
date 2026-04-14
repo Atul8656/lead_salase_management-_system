@@ -40,9 +40,9 @@ export default function LeadsDataTable({
     <div>
       <div className="flex flex-col gap-3 px-3 py-3 md:hidden">
         {items.map((l) => {
-          const overdue = isOverdue(l);
+          const fuStatus = getFollowUpStatus(l.follow_up_date, l.status);
           const hot = coerceLeadPriority(l.priority) === "HOT";
-          const rowBg = overdue ? "bg-rose-50/30" : hot ? "bg-emerald-50/30" : "bg-white";
+          const rowBg = fuStatus === "OVERDUE" ? "bg-rose-50/30" : hot ? "bg-emerald-50/30" : "bg-white";
           
           return (
             <div 

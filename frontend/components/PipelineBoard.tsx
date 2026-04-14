@@ -18,6 +18,8 @@ import { leadsApi } from "@/lib/api";
 import type { Lead, LeadPriority, LeadStatus } from "@/lib/types";
 import { coerceLeadPriority, coerceLeadStatus } from "@/lib/leadNormalize";
 import { LEAD_PRIORITY } from "@/lib/leadPriorityTheme";
+import { FollowUpBadge } from "@/components/FollowUpBadge";
+import { getFollowUpStatus } from "@/lib/formatDate";
 
 const COLUMNS: { id: LeadStatus; title: string }[] = [
   { id: "new", title: "New" },
@@ -131,14 +133,17 @@ function DraggableCard({ lead }: { lead: Lead }) {
           <PipelinePriorityLabel priority={pr} />
         </div>
         <p className="mt-1 text-xs font-medium text-neutral-500">{lead.company_name ?? "—"}</p>
-        <Link
-          href={`/leads/${lead.id}`}
-          className="mt-1 inline-block text-[10px] font-semibold text-neutral-500 underline decoration-neutral-300 underline-offset-2 hover:text-neutral-900"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-        >
-          Edit lead
-        </Link>
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <Link
+            href={`/leads/${lead.id}`}
+            className="text-[10px] font-semibold text-neutral-500 underline decoration-neutral-300 underline-offset-2 hover:text-neutral-900"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            Edit
+          </Link>
+          <FollowUpBadge status={getFollowUpStatus(lead.follow_up_date, lead.status)} />
+        </div>
       </div>
     </div>
   );

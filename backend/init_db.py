@@ -19,11 +19,13 @@ def ensure_columns():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP",
         "ALTER TABLE leads ADD COLUMN IF NOT EXISTS priority VARCHAR(16)",
         "ALTER TABLE leads ADD COLUMN IF NOT EXISTS description TEXT",
+        "ALTER TABLE leads ADD COLUMN IF NOT EXISTS category VARCHAR(255)",
+        "ALTER TABLE leads ADD COLUMN IF NOT EXISTS industry VARCHAR(255)",
     ]
     with engine.begin() as conn:
         for s in stmts:
             conn.execute(text(s))
-    print("Schema patches applied (phone, description).")
+    print("Schema patches applied (phone, description, category, industry).")
 
 
 if __name__ == "__main__":
