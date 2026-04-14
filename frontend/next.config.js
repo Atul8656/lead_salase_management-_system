@@ -1,11 +1,7 @@
-import path from "path";
-import type { NextConfig } from "next";
+const path = require("path");
 
-/** Where uvicorn runs; used only by dev/prod server to proxy /api/* */
-const BACKEND =
-  process.env.BACKEND_PROXY_URL?.trim() || "https://lead-salal-management.onrender.com";
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   turbopack: {},
   devIndicators: false,
   outputFileTracingRoot: path.join(__dirname, "../"),
@@ -16,6 +12,8 @@ const nextConfig: NextConfig = {
   },
 
   async rewrites() {
+    const BACKEND =
+      process.env.BACKEND_PROXY_URL?.trim() || "https://lead-salal-management.onrender.com";
     return [
       {
         source: "/api/:path*",
@@ -25,4 +23,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+module.exports = nextConfig;
