@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { usersApi } from "@/lib/api";
 import type { User } from "@/lib/types";
 import { formatAppDateTime } from "@/lib/formatDate";
+import { CustomSelect } from "@/components/CustomSelect";
 
 function displayMemberId(u: User): string {
   return u.member_id ?? `M${String(u.id).padStart(3, "0")}`;
@@ -186,20 +187,15 @@ export default function TeamMemberProfilePage() {
               className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-900"
             />
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-neutral-700">Role</label>
-            <select
-              value={form.role}
-              onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
-              className="app-select mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-900"
-            >
-              {ROLE_OPTIONS.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <CustomSelect
+            label="Role"
+            value={form.role}
+            onChange={(val) => setForm((f) => ({ ...f, role: val }))}
+            options={ROLE_OPTIONS.map((r) => ({
+              value: String(r.value),
+              label: r.label,
+            }))}
+          />
           <div className="flex flex-wrap gap-2 pt-2">
             <button
               type="submit"

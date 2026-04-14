@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 from db.connection import Base
 
 class Activity(Base):
@@ -11,7 +11,7 @@ class Activity(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     action = Column(String) # e.g., "Status changed", "Note added"
     details = Column(String)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     lead = relationship("Lead", back_populates="activities")
     user = relationship("User", back_populates="activities")

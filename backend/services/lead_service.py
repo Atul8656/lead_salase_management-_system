@@ -188,9 +188,9 @@ def search_leads(
 
     total = query.count()
     prio = case(
-        (Lead.priority == "hot", 0),
-        (Lead.priority == "warm", 1),
-        (Lead.priority == "cold", 2),
+        (Lead.priority == "HOT", 0),
+        (Lead.priority == "WARM", 1),
+        (Lead.priority == "COLD", 2),
         else_=3,
     )
     rows = (
@@ -212,11 +212,22 @@ def list_lead_remarks(db: Session, lead_id: int):
     )
 
 
-def add_lead_remark(db: Session, lead_id: int, user_id: int, body: str) -> LeadRemark:
-    text = (body or "").strip()
+def add_lead_remark(db: Session, lead_id: int, user_id: int, data: lead_schema.LeadRemarkCreate) -> LeadRemark:
+    text = (data.body or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="Remark cannot be empty")
+    
+    # Use provided timestamp or let DB default handle it
+    created_at = data.created_at
+    if created_at and created_at.tzinfo is not None:
+         # Normalize to UTC naive if the column isn't aware yet, 
+         # but I changed it to aware. So we just ensure it's UTC.
+         created_at = created_at.astimezone(timezone.utc)
+
     r = LeadRemark(lead_id=lead_id, user_id=user_id, body=text)
+    if created_at:
+        r.created_at = created_at
+
     db.add(r)
     db.commit()
     activity_service.log_activity(
@@ -353,62 +364,104 @@ def update_lead(db: Session, lead_id: int, lead_update: LeadUpdate, user_id: int
     if not db_lead:
         return None
 
+    # exclude_unset=True ensures we only update fields provided in the PATCH request
     update_data = lead_update.model_dump(exclude_unset=True)
+
+    # Validate assignee if provided
+    new_assignee_id = update_data.get("assigned_to")
+    if new_assignee_id is not None:
+        target_user = db.query(User).filter(User.id == new_assignee_id).first()
+        if not target_user:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Assigned user with id {new_assignee_id} does not exist"
+            )
 
     new_status = update_data.get("status")
     if new_status is not None:
-        ns = (
-            new_status.value
-            if isinstance(new_status, LeadStatus)
-            else str(new_status)
-        )
-        coerced_status = (
-            new_status if isinstance(new_status, LeadStatus) else LeadStatus(str(ns))
-        )
-        validate_pipeline_transition(db_lead.status, coerced_status)
+        try:
+            # Pydantic may have already coerced it to enum value if valid
+            if isinstance(new_status, LeadStatus):
+                coerced_status = new_status
+            else:
+                s = str(new_status).strip().lower().replace("_", "-")
+                coerced_status = LeadStatus(s)
+            
+            validate_pipeline_transition(db_lead.status, coerced_status)
 
-        if ns == LeadStatus.INTERESTED.value:
-            fu = update_data.get("follow_up_date")
-            if fu is None and db_lead.follow_up_date is None:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Follow-up date is required for 'Interested' leads",
-                )
-        if ns == LeadStatus.CONVERTED.value:
-            amt = update_data.get("payment_amount", db_lead.payment_amount)
-            meth = update_data.get("payment_method", db_lead.payment_method)
-            if not _payment_ok(amt, meth):
-                raise HTTPException(
-                    status_code=400,
-                    detail="Payment amount and payment method are required for 'Converted' leads",
-                )
-            db_lead.converted_at = datetime.utcnow()
+            if coerced_status == LeadStatus.INTERESTED:
+                fu = update_data.get("follow_up_date")
+                if fu is None and db_lead.follow_up_date is None:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Follow-up date is required for 'Interested' leads",
+                    )
+            if coerced_status == LeadStatus.CONVERTED:
+                amt = update_data.get("payment_amount", db_lead.payment_amount)
+                meth = update_data.get("payment_method", db_lead.payment_method)
+                if not _payment_ok(amt, meth):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Payment amount and payment method are required for 'Converted' leads",
+                    )
+                db_lead.converted_at = datetime.utcnow()
+        except ValueError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid status value: {new_status}. Error: {str(e)}"
+            )
 
     changes = []
     for key, value in update_data.items():
+        if not hasattr(db_lead, key):
+            continue
+            
         old_val = getattr(db_lead, key)
         if not _field_changed(old_val, value):
             continue
+            
         coerced = value
         if key == "follow_up_date" and coerced is not None:
             coerced = _naive_utc(coerced)
-        if key == "status" and value is not None:
-            coerced = value if isinstance(value, LeadStatus) else LeadStatus(str(value))
+        elif key == "status" and value is not None:
+            if not isinstance(value, LeadStatus):
+                try:
+                    s = str(value).strip().lower().replace("_", "-")
+                    coerced = LeadStatus(s)
+                except ValueError:
+                    coerced = value
         elif key == "lead_type" and value is not None:
-            coerced = value if isinstance(value, LeadType) else LeadType(str(value))
+            if not isinstance(value, LeadType):
+                try:
+                    s = str(value).strip().lower()
+                    coerced = LeadType(s)
+                except ValueError:
+                    coerced = value
+        
+        # Additional safety for mandatory fields like 'name'
+        if key == "name" and (value is None or str(value).strip() == ""):
+             raise HTTPException(status_code=400, detail="Name cannot be empty")
+
         setattr(db_lead, key, coerced)
         changes.append(f"{key}: {_activity_val(old_val)} → {_activity_val(coerced)}")
 
     if changes:
-        db.commit()
-        db.refresh(db_lead)
-        activity_service.log_activity(
-            db,
-            lead_id=db_lead.id,
-            user_id=user_id,
-            action="Lead Updated",
-            details=" | ".join(changes[:20]),
-        )
+        try:
+            db.commit()
+            db.refresh(db_lead)
+            activity_service.log_activity(
+                db,
+                lead_id=db_lead.id,
+                user_id=user_id,
+                action="Lead Updated",
+                details=" | ".join(changes[:20]),
+            )
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(
+                status_code=400,
+                detail=f"Database update failed: {str(e)}"
+            )
 
     return db_lead
 
@@ -491,49 +544,102 @@ def _parse_import_status(raw) -> LeadStatus:
     except ValueError:
         return LeadStatus.NEW
 
+def is_valid_email(email: str) -> bool:
+    return bool(re.match(r"[^@]+@[^@]+\.[^@]+", email)) if email else False
+
+def is_valid_phone(phone: str) -> bool:
+    return len(re.sub(r"\D", "", phone)) >= 5 if phone else False
+
+def get_existing_lead(db: Session, email: str | None, phone: str | None) -> Optional[Lead]:
+    if not email and not phone:
+        return None
+    clauses = []
+    if email:
+        clauses.append(Lead.email == email)
+    if phone:
+        clauses.append(Lead.phone == phone)
+    return db.query(Lead).filter(or_(*clauses)).first()
 
 def import_leads_from_rows(
     db: Session,
     rows: List[dict],
     user_id: int,
+    mode: str = "skip",
 ) -> dict:
-    """rows: list of normalized dicts with at least name, phone."""
-    created = 0
+    """rows: list of normalized dicts. mode: 'skip' or 'update' existing leads."""
+    success = 0
+    updated = 0
+    failed = 0
     errors: List[str] = []
+    
     for i, row in enumerate(rows, start=2):
-        name = (row.get("name") or "").strip()
-        phone = (row.get("phone") or "").strip()
-        if not name or not phone:
-            errors.append(f"Row {i}: name and phone are required")
-            continue
-        try:
-            st = _parse_import_status(row.get("status"))
-            assign_id = user_id
-            if row.get("assigned_to"):
-                try:
-                    assign_id = int(row["assigned_to"])
-                except (TypeError, ValueError):
-                    assign_id = user_id
-            if not db.query(User).filter(User.id == assign_id).first():
-                assign_id = user_id
+        # Trim and normalize data
+        data = {k: (str(v).strip() if v is not None else None) for k, v in row.items()}
+        name = data.get("name")
+        phone = data.get("phone")
+        email = data.get("email")
 
+        if not name:
+            errors.append(f"Row {i}: Name is required")
+            failed += 1
+            continue
+        
+        if email and not is_valid_email(email):
+            errors.append(f"Row {i}: Invalid email format ({email})")
+            failed += 1
+            continue
+
+        if phone and not is_valid_phone(phone):
+            errors.append(f"Row {i}: Invalid phone number ({phone})")
+            failed += 1
+            continue
+
+        try:
+            # Check for existing
+            existing = get_existing_lead(db, email, phone)
+            
+            if existing:
+                if mode == "skip":
+                    errors.append(f"Row {i}: Skipped (Duplicate found for {email or phone})")
+                    failed += 1
+                    continue
+                else:
+                    # Update mode
+                    for k, v in data.items():
+                        if hasattr(existing, k) and v is not None:
+                            setattr(existing, k, v)
+                    db.commit()
+                    updated += 1
+                    activity_service.log_activity(
+                        db,
+                        lead_id=existing.id,
+                        user_id=user_id,
+                        action="Lead Updated",
+                        details=f"Import update: {existing.name}",
+                    )
+                    continue
+
+            # Create new
+            st = _parse_import_status(data.get("status"))
             lead = Lead(
                 name=name,
                 phone=phone,
-                email=(row.get("email") or "").strip() or None,
-                company_name=(row.get("company_name") or row.get("company") or "").strip() or None,
-                location=(row.get("location") or "").strip() or None,
-                source=(row.get("source") or "").strip() or None,
-                lead_type=LeadType.INBOUND,
+                email=email or None,
+                company_name=data.get("company_name"),
+                website_url=data.get("website_url"),
+                linkedin_url=data.get("linkedin_url"),
+                location=data.get("location"),
+                category=data.get("category"),
+                industry=data.get("industry"),
+                notes=data.get("notes"),
                 status=st,
-                assigned_to=assign_id,
-                notes=(row.get("notes") or "").strip() or None,
-                budget=(row.get("budget") or "").strip() or None,
+                assigned_to=user_id, # Default to importer
+                lead_type=LeadType.INBOUND,
             )
             db.add(lead)
             db.commit()
             db.refresh(lead)
-            created += 1
+            success += 1
             activity_service.log_activity(
                 db,
                 lead_id=lead.id,
@@ -544,8 +650,15 @@ def import_leads_from_rows(
         except Exception as e:
             db.rollback()
             errors.append(f"Row {i}: {e!s}")
+            failed += 1
 
-    return {"created": created, "errors": errors}
+    return {
+        "total": len(rows),
+        "success": success,
+        "updated": updated,
+        "failed": failed,
+        "errors": errors[:50], # Limit error log size
+    }
 
 
 def normalize_header(h: str) -> str:
@@ -554,57 +667,48 @@ def normalize_header(h: str) -> str:
 
 def parse_import_file(content: bytes, filename: str) -> List[dict]:
     name = (filename or "").lower()
+    rows = []
+    
     if name.endswith(".csv"):
         text = content.decode("utf-8-sig", errors="replace")
         reader = csv.DictReader(io.StringIO(text))
-        rows = []
         for r in reader:
             m = {normalize_header(k): (v or "").strip() for k, v in r.items() if k}
-            mapped = {
-                "name": m.get("name") or m.get("full_name") or m.get("lead_name"),
-                "phone": m.get("phone") or m.get("mobile") or m.get("tel"),
-                "email": m.get("email"),
-                "company_name": m.get("company_name") or m.get("company"),
-                "status": m.get("status"),
-                "assigned_to": m.get("assigned_to") or m.get("assignee_id"),
-                "location": m.get("location"),
-                "source": m.get("source"),
-                "notes": m.get("notes"),
-                "budget": m.get("budget"),
-            }
-            rows.append(mapped)
-        return rows
-    if name.endswith(".xlsx") or name.endswith(".xls"):
+            if not any(m.values()): continue # skip empty
+            rows.append(m)
+    elif name.endswith(".xlsx") or name.endswith(".xls"):
         try:
             from openpyxl import load_workbook
         except ImportError:
-            raise HTTPException(
-                status_code=500,
-                detail="Excel support requires openpyxl (pip install openpyxl)",
-            )
+            raise HTTPException(status_code=500, detail="Excel support requires openpyxl")
         wb = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
         ws = wb.active
         headers = [normalize_header(str(c.value) if c.value else "") for c in next(ws.iter_rows(min_row=1, max_row=1))]
-        rows = []
         for row in ws.iter_rows(min_row=2, values_only=True):
-            if not any(row):
-                continue
-            m = {headers[i]: (str(row[i]).strip() if row[i] is not None else "") for i in range(len(headers))}
-            mapped = {
-                "name": m.get("name") or m.get("full_name"),
-                "phone": m.get("phone") or m.get("mobile"),
-                "email": m.get("email"),
-                "company_name": m.get("company_name") or m.get("company"),
-                "status": m.get("status"),
-                "assigned_to": m.get("assigned_to"),
-                "location": m.get("location"),
-                "source": m.get("source"),
-                "notes": m.get("notes"),
-                "budget": m.get("budget"),
-            }
-            rows.append(mapped)
-        return rows
-    raise HTTPException(status_code=400, detail="Use .csv or .xlsx file")
+            if not any(row): continue
+            m = {headers[i]: (str(row[i]).strip() if row[i] is not None else "") for i in range(len(headers)) if i < len(headers)}
+            rows.append(m)
+    else:
+        raise HTTPException(status_code=400, detail="Use .csv or .xlsx file")
+
+    final = []
+    for m in rows:
+        mapped = {
+            "name": m.get("name") or m.get("full_name") or m.get("lead_name") or m.get("client_name") or m.get("customer"),
+            "phone": m.get("phone") or m.get("mobile") or m.get("contact") or m.get("tel") or m.get("whatsapp"),
+            "email": m.get("email") or m.get("e_mail") or m.get("mail"),
+            "company_name": m.get("company_name") or m.get("company") or m.get("organization") or m.get("firm"),
+            "website_url": m.get("website_url") or m.get("website") or m.get("url") or m.get("site"),
+            "linkedin_url": m.get("linkedin_url") or m.get("linkedin") or m.get("linked_in"),
+            "location": m.get("location") or m.get("city") or m.get("address") or m.get("country") or m.get("state"),
+            "category": m.get("category") or m.get("segment") or m.get("group") or m.get("tag"),
+            "industry": m.get("industry") or m.get("sector") or m.get("vertical") or m.get("business"),
+            "status": m.get("status"),
+            "notes": m.get("notes") or m.get("remarks") or m.get("comments") or m.get("description"),
+        }
+        final.append(mapped)
+    
+    return final
 
 
 SAMPLE_CSV = """name,phone,email,company_name,status,assigned_to,source,location,notes,budget

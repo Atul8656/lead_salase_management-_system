@@ -3,16 +3,21 @@ from typing import List, Optional, Literal
 from datetime import datetime
 from models.lead import LeadStatus, LeadType
 
-LeadPriorityOpt = Optional[Literal["hot", "warm", "cold"]]
+LeadPriorityOpt = Optional[Literal["HOT", "WARM", "COLD"]]
 
 
 def _coerce_priority_value(v):
     if v == "" or v is None:
         return None
     if isinstance(v, str):
-        s = v.strip().lower()
-        if s in ("hot", "warm", "cold"):
+        s = v.strip().upper()
+        if s in ("HOT", "WARM", "COLD"):
             return s
+        # Fallback for lowercase/mixed casing if needed
+        sl = s.lower()
+        if sl == "hot": return "HOT"
+        if sl == "warm": return "WARM"
+        if sl == "cold": return "COLD"
     return v
 
 
@@ -34,6 +39,8 @@ class LeadBase(BaseModel):
     description: Optional[str] = None
     notes: Optional[str] = None
     priority: LeadPriorityOpt = None
+    category: Optional[str] = None
+    industry: Optional[str] = None
     payment_amount: float = 0.0
     payment_method: Optional[str] = None
     follow_up_date: Optional[datetime] = None
@@ -51,7 +58,12 @@ class LeadCreate(LeadBase):
     assigned_to: Optional[int] = None
 
 class LeadUpdate(BaseModel):
-    model_config = {"use_enum_values": True}
+    model_config = ConfigDict(
+        use_enum_values=True,
+        validate_assignment=True,
+        arbitrary_types_allowed=True,
+        populate_by_name=True
+    )
 
     name: Optional[str] = None
     email: Optional[EmailStr] = None
@@ -75,6 +87,39 @@ class LeadUpdate(BaseModel):
     notes: Optional[str] = None
     description: Optional[str] = None
     priority: LeadPriorityOpt = None
+    category: Optional[str] = None
+    industry: Optional[str] = None
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def normalize_status(cls, v):
+        if v is None or v == "":
+            return None
+        if isinstance(v, str):
+            s = v.strip().lower().replace("_", "-").replace(" ", "-")
+            # Handle common variations
+            if s == "follow-up" or s == "follow_up":
+                return LeadStatus.FOLLOW_UP
+            if s in ("lost", "not-interested", "not_interested"):
+                return LeadStatus.LOST
+            try:
+                return LeadStatus(s)
+            except ValueError:
+                return v # Let pydantic handle it or return as is if valid
+        return v
+
+    @field_validator("lead_type", mode="before")
+    @classmethod
+    def normalize_lead_type(cls, v):
+        if v is None or v == "":
+            return None
+        if isinstance(v, str):
+            s = v.strip().lower()
+            try:
+                return LeadType(s)
+            except ValueError:
+                return v
+        return v
 
     @field_validator("priority", mode="before")
     @classmethod
@@ -89,6 +134,8 @@ class Lead(LeadBase):
     converted_at: Optional[datetime] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
+    category: Optional[str] = None
+    industry: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -109,6 +156,7 @@ class LeadListOut(BaseModel):
 
 class LeadRemarkCreate(BaseModel):
     body: str = Field(..., min_length=1, max_length=20000)
+    created_at: Optional[datetime] = None
 
 
 class LeadRemarkOut(BaseModel):

@@ -8,7 +8,7 @@ export type LeadStatus =
 
 export type LeadType = "inbound" | "outbound";
 
-export type LeadPriority = "hot" | "warm" | "cold";
+export type LeadPriority = "HOT" | "WARM" | "COLD";
 
 export interface Lead {
   id: number;

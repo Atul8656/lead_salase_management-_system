@@ -22,7 +22,7 @@ export function PriorityBadge({
         borderColor: t.badgeBorder,
       }}
     >
-      {p === "hot" && (
+      {p === "HOT" && (
         <span
           className="inline-block size-1.5 shrink-0 rounded-full opacity-95"
           style={{ backgroundColor: t.accent }}

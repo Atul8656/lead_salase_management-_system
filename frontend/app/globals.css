@@ -13,16 +13,21 @@
   --color-border-tertiary: #e8e8e8;
   --color-background-info: #f0f0f0;
   --color-text-info: #0a0a0a;
-  --accent: #0a0a0a;
-  --accent-hover: #000000;
-  --accent-subtle: rgba(10, 10, 10, 0.08);
-  --shadow-card: 0 1px 2px rgba(10, 10, 10, 0.04), 0 4px 12px rgba(10, 10, 10, 0.06);
-  --shadow-hover: 0 2px 8px rgba(10, 10, 10, 0.08);
+  --accent: #000000;
+  --accent-hover: #171717;
+  --accent-subtle: #f3f3f3;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.05);
+  --shadow-hover: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
 body {
@@ -31,96 +36,80 @@ body {
   font-family: "Inter", system-ui, -apple-system, sans-serif;
   overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
+  width: 100%;
+  min-height: 100vh;
 }
 
-/* Space for fixed mobile bottom nav + iOS home indicator */
-.pb-mobile-nav {
-  padding-bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+img, video, canvas, svg {
+  display: block;
+  max-width: 100%;
 }
 
-@media (min-width: 768px) {
-  .pb-mobile-nav {
-    padding-bottom: 0;
-  }
+input, button, textarea, select {
+  font: inherit;
 }
 
-.app-link {
-  font-weight: 600;
-  color: var(--foreground);
-  text-decoration: underline;
-  text-decoration-color: #a3a3a3;
-  text-underline-offset: 3px;
-  transition: text-decoration-color 0.15s ease, color 0.15s ease;
+/* Global Selection Style */
+::selection {
+  background-color: #000000;
+  color: #ffffff;
 }
 
-.app-link:hover {
-  color: #000000;
-  text-decoration-color: #0a0a0a;
-}
-
-a.url-link {
-  font-weight: 600;
-  color: var(--foreground);
-  text-decoration: underline;
-  text-decoration-color: #d4d4d4;
-  text-underline-offset: 3px;
-  word-break: break-all;
-}
-
-a.url-link:hover {
-  text-decoration-color: #0a0a0a;
-}
-
-.crm-card {
-  background: var(--card);
-  border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
-  border-radius: 14px;
-  box-shadow: var(--shadow-card);
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-.crm-card:hover {
-  box-shadow: var(--shadow-hover);
-}
-
-.glass {
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid var(--border);
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.45s ease-out forwards;
-}
-
+/* Native Select Overrides (Best effort B&W theme) */
 select.app-select,
 select {
-  appearance: auto;
-  accent-color: #0a0a0a;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23000000' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 0.9rem;
+  padding-right: 2.5rem;
   color-scheme: light;
+  background-color: #ffffff;
+  color: #000000;
+  cursor: pointer;
 }
 
 select.app-select:focus,
 select:focus {
   outline: none;
-  border-color: #0a0a0a;
-  box-shadow: 0 0 0 2px rgba(10, 10, 10, 0.12);
+  border-color: #000000;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
 }
 
+/* This helps in some browsers but native dropdown lists are limited */
 select.app-select option,
 select option {
   background-color: #ffffff;
-  color: #0a0a0a;
+  color: #000000;
+  padding: 10px;
+}
+
+/* Custom Dropdown Animation Upgrade */
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-dropdown {
+  animation: dropdownFadeIn 0.2s ease-out forwards;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

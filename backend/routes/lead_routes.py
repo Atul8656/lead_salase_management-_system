@@ -101,6 +101,7 @@ def download_import_sample():
 
 @router.post("/import")
 async def import_leads(
+    mode: str = "skip",
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -109,7 +110,7 @@ async def import_leads(
     rows = lead_service.parse_import_file(content, file.filename or "upload.csv")
     if not rows:
         raise HTTPException(status_code=400, detail="No data rows found in file")
-    return lead_service.import_leads_from_rows(db, rows, current_user.id)
+    return lead_service.import_leads_from_rows(db, rows, current_user.id, mode)
 
 
 @router.get("/overdue", response_model=List[lead_schema.Lead])
@@ -237,7 +238,7 @@ def lead_remarks_create(
     current_user: User = Depends(get_current_user),
 ):
     lead_service.get_lead_for_user(db, lead_id, current_user)
-    r = lead_service.add_lead_remark(db, lead_id, current_user.id, body.body)
+    r = lead_service.add_lead_remark(db, lead_id, current_user.id, body)
     u = r.user
     return lead_schema.LeadRemarkOut(
         id=r.id,

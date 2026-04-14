@@ -5,11 +5,11 @@ export function coerceLeadPriority(
   raw: string | LeadPriority | null | undefined
 ): LeadPriority | null {
   if (raw == null) return null;
-  const x = String(raw).trim().toLowerCase();
-  if (!x || x === "none" || x === "null") return null;
-  if (x === "hot" || x === "high" || x === "urgent") return "hot";
-  if (x === "warm" || x === "medium") return "warm";
-  if (x === "cold" || x === "low") return "cold";
+  const x = String(raw).trim().toUpperCase();
+  if (!x || x === "NONE" || x === "NULL") return null;
+  if (x === "HOT" || x === "HIGH" || x === "URGENT") return "HOT";
+  if (x === "WARM" || x === "MEDIUM") return "WARM";
+  if (x === "COLD" || x === "LOW") return "COLD";
   return null;
 }
 

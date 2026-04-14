@@ -68,3 +68,24 @@ export function localTodayYMD(): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
+
+export type FollowUpStatus = "OVERDUE" | "TODAY" | "PENDING";
+
+export function getFollowUpStatus(
+  iso: string | null | undefined,
+  leadStatus?: string
+): FollowUpStatus | null {
+  if (!iso || leadStatus === "converted" || leadStatus === "lost") return null;
+  
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+
+  // Compare YYYY-MM-DD strings to ignore time
+  const p = (n: number) => String(n).padStart(2, "0");
+  const followDate = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  const today = localTodayYMD();
+
+  if (followDate < today) return "OVERDUE";
+  if (followDate === today) return "TODAY";
+  return "PENDING";
+}

@@ -158,7 +158,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthUserProvider value={{ user: me, loading: meLoading, onUserUpdated: refreshMe }}>
-      <div className="flex h-[100dvh] max-h-[100dvh] w-full bg-white text-neutral-900">
+      <div className="flex h-screen w-full bg-white text-neutral-900 overflow-hidden">
         <aside className="hidden w-60 shrink-0 flex-col border-r border-neutral-200 bg-white md:flex">
           <div className="flex items-center gap-3 p-6">
             <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg border border-neutral-200 bg-white text-neutral-900">
@@ -233,12 +233,14 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
               <UserAccountMenu variant="header" />
             </div>
           </header>
-          <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 pb-mobile-nav sm:p-4 md:p-8 md:pb-8">
-            {children}
+          <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 pb-24 sm:p-4 md:p-8 md:pb-8">
+            <div className="mx-auto w-full max-w-7xl">
+              {children}
+            </div>
           </main>
           <nav
-            className="fixed bottom-0 left-0 right-0 z-40 flex border-t border-neutral-200 bg-white/95 px-1 pt-1 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] backdrop-blur-md md:hidden"
-            style={{ paddingBottom: "max(0.35rem, env(safe-area-inset-bottom))" }}
+            className="fixed bottom-0 left-0 right-0 z-40 flex border-t border-neutral-200 bg-white/95 px-1 pt-1 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] backdrop-blur-md md:hidden"
+            style={{ paddingBottom: "max(5px, env(safe-area-inset-bottom))" }}
             aria-label="Main navigation"
           >
             {mobileNavItems.map((item) => {

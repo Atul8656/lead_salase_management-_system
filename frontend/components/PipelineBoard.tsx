@@ -34,7 +34,7 @@ function normalizeLeadRow(l: Lead): Lead {
   return { ...l, status, priority };
 }
 
-const PRI_RANK: Record<string, number> = { hot: 0, warm: 1, cold: 2 };
+const PRI_RANK: Record<string, number> = { HOT: 0, WARM: 1, COLD: 2 };
 
 function sortLeadsByPriorityThenDate(leads: Lead[]): Lead[] {
   return [...leads].sort((a, b) => {

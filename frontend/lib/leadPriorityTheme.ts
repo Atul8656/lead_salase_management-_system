@@ -15,19 +15,19 @@ export const LEAD_PRIORITY: Record<
     badgeBorder: string;
   }
 > = {
-  hot: {
+  HOT: {
     label: "HOT",
     accent: "#60B523",
     badgeBg: "#EFFAE6",
     badgeBorder: "rgba(96, 181, 35, 0.42)",
   },
-  warm: {
+  WARM: {
     label: "WARM",
     accent: "#DCD354",
     badgeBg: "#FEFCE8",
     badgeBorder: "rgba(220, 211, 84, 0.55)",
   },
-  cold: {
+  COLD: {
     label: "COLD",
     accent: "#CC652E",
     badgeBg: "#FFF4EC",

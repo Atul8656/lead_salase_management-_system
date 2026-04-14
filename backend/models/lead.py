@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Type
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import ENUM as PG_ENUM
 import enum
-from datetime import datetime
+from datetime import datetime, timezone
 from db.connection import Base
 
 
@@ -128,18 +128,20 @@ class Lead(Base):
     description = Column(Text, nullable=True)
     notes = Column(String)
     priority = Column(String(16), nullable=True)  # hot | warm | cold
+    category = Column(String)
+    industry = Column(String)
     
     # Financials for "Converted" status
     payment_amount = Column(Float, default=0.0)
     payment_method = Column(String)
     
     # Dates
-    follow_up_date = Column(DateTime)
-    last_contacted = Column(DateTime)
+    follow_up_date = Column(DateTime(timezone=True))
+    last_contacted = Column(DateTime(timezone=True))
     follow_up_count = Column(Integer, default=0)
-    converted_at = Column(DateTime)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    converted_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     assignee = relationship("User", back_populates="leads")
     followups = relationship("FollowUp", back_populates="lead")

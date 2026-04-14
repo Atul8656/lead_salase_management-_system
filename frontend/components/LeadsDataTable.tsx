@@ -7,19 +7,13 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { PriorityBadge } from "@/components/PriorityBadge";
 import { coerceLeadPriority } from "@/lib/leadNormalize";
 
+import { FollowUpBadge } from "@/components/FollowUpBadge";
+import { getFollowUpStatus } from "@/lib/formatDate";
+
 export function assigneeLabel(users: User[], assignedTo: number | null): string {
   if (assignedTo == null) return "—";
   const u = users.find((x) => x.id === assignedTo);
   return u ? `${u.full_name}` : `#${assignedTo}`;
-}
-
-function isOverdue(lead: Lead): boolean {
-  return Boolean(
-    lead.follow_up_date &&
-      new Date(lead.follow_up_date) < new Date() &&
-      lead.status !== "converted" &&
-      lead.status !== "lost"
-  );
 }
 
 const leadLinkClass =
@@ -44,43 +38,54 @@ export default function LeadsDataTable({
 
   return (
     <div>
-      <div className="divide-y divide-neutral-200 md:hidden">
+      <div className="flex flex-col gap-3 px-3 py-3 md:hidden">
         {items.map((l) => {
           const overdue = isOverdue(l);
-          const hot = coerceLeadPriority(l.priority) === "hot";
-          const rowBg = overdue ? "bg-rose-50/50" : hot ? "bg-emerald-50/50" : "bg-white";
+          const hot = coerceLeadPriority(l.priority) === "HOT";
+          const rowBg = overdue ? "bg-rose-50/30" : hot ? "bg-emerald-50/30" : "bg-white";
+          
           return (
-            <div key={l.id} className={`px-4 py-4 ${rowBg}`}>
+            <div 
+              key={l.id} 
+              className={`rounded-2xl border border-neutral-200 p-4 shadow-sm transition-all active:scale-[0.98] ${rowBg}`}
+            >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <Link href={`/leads/${l.id}`} className={leadLinkClass}>
+                  <Link href={`/leads/${l.id}`} className={`${leadLinkClass} text-base`}>
                     {l.name}
                   </Link>
-                  <p className="mt-1 text-xs font-medium text-neutral-500">
-                    {[l.company_name, l.phone, l.email].filter(Boolean).join(" · ") || "—"}
+                  <p className="mt-1 text-[13px] font-medium text-neutral-500 line-clamp-1">
+                    {l.company_name || "No company"}
                   </p>
                 </div>
-                <div className="flex shrink-0 flex-col items-end gap-1.5">
-                  <PriorityBadge priority={l.priority} size="xs" />
-                  <StatusBadge status={l.status} variant="solid" />
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <div className="flex gap-1">
+                    <PriorityBadge priority={l.priority} size="xs" />
+                    <StatusBadge status={l.status} variant="solid" />
+                  </div>
                 </div>
               </div>
-              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600">
-                <span>
-                  <span className="font-semibold text-neutral-700">Assigned:</span>{" "}
-                  {assigneeLabel(users, l.assigned_to)}
-                </span>
-                <span>
-                  <span className="font-semibold text-neutral-700">Follow-up:</span>{" "}
-                  {l.follow_up_date ? formatAppDateTime(l.follow_up_date) : "—"}
-                  {overdue && (
-                    <span className="ml-1 font-bold text-red-600">Overdue</span>
-                  )}
-                </span>
+
+              <div className="mt-4 grid grid-cols-1 gap-2 border-t border-neutral-100 pt-3">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-bold uppercase tracking-wider text-neutral-400">Assigned</span>
+                  <span className="font-bold text-neutral-900">{assigneeLabel(users, l.assigned_to)}</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-bold uppercase tracking-wider text-neutral-400">Follow-up</span>
+                  <div className="flex items-center gap-1.5 font-bold text-neutral-900">
+                    {l.follow_up_date ? formatAppDateTime(l.follow_up_date) : "—"}
+                    <FollowUpBadge status={getFollowUpStatus(l.follow_up_date, l.status)} />
+                  </div>
+                </div>
               </div>
-              <div className="mt-2">
-                <Link href={`/leads/${l.id}`} className={`${leadLinkClass} text-sm`}>
-                  Open lead
+
+              <div className="mt-4 flex gap-2">
+                <Link 
+                  href={`/leads/${l.id}`} 
+                  className="flex-1 rounded-xl bg-neutral-900 py-2.5 text-center text-xs font-black text-white shadow-md shadow-neutral-100 transition active:opacity-90"
+                >
+                  View Details
                 </Link>
               </div>
             </div>
@@ -125,9 +130,9 @@ export default function LeadsDataTable({
         </thead>
         <tbody className="divide-y divide-neutral-200">
           {items.map((l) => {
-            const overdue = isOverdue(l);
-            const hot = coerceLeadPriority(l.priority) === "hot";
-            const rowBg = overdue
+            const fuStatus = getFollowUpStatus(l.follow_up_date, l.status);
+            const hot = coerceLeadPriority(l.priority) === "HOT";
+            const rowBg = fuStatus === "OVERDUE"
               ? "bg-rose-50/50"
               : hot
                 ? "bg-emerald-50/50"
@@ -166,15 +171,12 @@ export default function LeadsDataTable({
                   </span>
                 </td>
                 <td className="px-4 py-4 align-top">
-                  <span className="text-[13px] font-medium leading-snug text-neutral-800">
-                    {l.follow_up_date ? formatAppDateTime(l.follow_up_date) : "—"}
-                    {overdue && (
-                      <>
-                        {" "}
-                        <span className="font-bold text-red-600">Overdue</span>
-                      </>
-                    )}
-                  </span>
+                  <div className="flex flex-col gap-1 items-start">
+                    <span className="text-[13px] font-medium leading-snug text-neutral-800">
+                      {l.follow_up_date ? formatAppDateTime(l.follow_up_date) : "—"}
+                    </span>
+                    <FollowUpBadge status={fuStatus} />
+                  </div>
                 </td>
                 <td className="px-4 py-4 align-top text-right">
                   <Link href={`/leads/${l.id}`} className={`${leadLinkClass} text-sm`}>

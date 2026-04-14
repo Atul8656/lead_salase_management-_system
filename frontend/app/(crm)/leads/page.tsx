@@ -9,6 +9,8 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { PriorityBadge } from "@/components/PriorityBadge";
 import LeadsDataTable, { assigneeLabel } from "@/components/LeadsDataTable";
 import { coerceLeadPriority } from "@/lib/leadNormalize";
+import { FilterPopover } from "@/components/FilterPopover";
+import { CustomSelect } from "@/components/CustomSelect";
 
 const STATUSES: LeadStatus[] = [
   "new",
@@ -89,6 +91,8 @@ export default function LeadsPage() {
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [followUpToday, setFollowUpToday] = useState(false);
   const [leadView, setLeadView] = useState<"list" | "table">("table");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [importMode, setImportMode] = useState<"skip" | "update">("skip");
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedQ(q.trim()), 350);
@@ -303,14 +307,21 @@ export default function LeadsPage() {
 
   async function confirmImport() {
     if (!pendingImportFile) return;
-    setImportMsg("Uploading…");
+    setImportMsg("Uploading and processing…");
     try {
-      const r = await leadsApi.importFile(pendingImportFile);
+      const r = await leadsApi.importFile(pendingImportFile, importMode);
       setImportPreview(null);
       setPendingImportFile(null);
-      setImportMsg(
-        `Imported ${r.created} lead(s).${r.errors.length ? ` ${r.errors.slice(0, 5).join(" ")}` : ""}`
-      );
+      
+      const summary = `Import complete: ${r.success} created, ${r.updated} updated, ${r.failed} failed out of ${r.total} total rows.`;
+      setImportMsg(summary);
+      
+      if (r.errors.length > 0) {
+        setErr(`Import had some issues: ${r.errors.slice(0, 5).join(" | ")}...`);
+      } else {
+        setErr("");
+      }
+      
       await load();
     } catch (e) {
       setImportMsg(e instanceof Error ? e.message : "Import failed");
@@ -330,14 +341,14 @@ export default function LeadsPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="mr-1 inline-flex rounded-xl border border-neutral-200 bg-neutral-100/80 p-0.5">
+          <div className="mr-1 flex rounded-xl border border-neutral-200 bg-neutral-100/80 p-0.5">
             <button
               type="button"
               onClick={() => setLeadView("list")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+              className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition ${
                 leadView === "list"
                   ? "bg-white text-neutral-900 shadow-sm"
-                  : "text-neutral-600 hover:text-neutral-900"
+                  : "text-neutral-500 hover:text-neutral-900"
               }`}
             >
               List
@@ -345,204 +356,269 @@ export default function LeadsPage() {
             <button
               type="button"
               onClick={() => setLeadView("table")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+              className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition ${
                 leadView === "table"
                   ? "bg-white text-neutral-900 shadow-sm"
-                  : "text-neutral-600 hover:text-neutral-900"
+                  : "text-neutral-500 hover:text-neutral-900"
               }`}
             >
               Table
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setImportOpen(true);
-              setImportMsg("");
-              setImportPreview(null);
-              setPendingImportFile(null);
-              requestAnimationFrame(() => {
-                if (importFileInputRef.current) importFileInputRef.current.value = "";
-              });
-            }}
-            className="rounded-xl border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
-          >
-            Import leads
-          </button>
-          <button
-            type="button"
-            onClick={() => downloadLeadsCsv().catch(console.error)}
-            className="rounded-xl border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-100"
-          >
-            Export CSV
-          </button>
-          <Link
-            href="/leads/new"
-            className="rounded-xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800"
-          >
-            Add lead
-          </Link>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <FilterPopover
+              isOpen={filterOpen}
+              onOpen={() => setFilterOpen(true)}
+              onClose={() => setFilterOpen(false)}
+              activeCount={activeFilterCount}
+              onApply={() => {
+                setPage(0);
+                load();
+              }}
+              onClear={clearFilters}
+            >
+              <div className="space-y-5">
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-neutral-400">
+                    Search
+                  </span>
+                  <input
+                    value={q}
+                    onChange={(e) => {
+                      setPage(0);
+                      setQ(e.target.value);
+                    }}
+                    placeholder="Name, phone, email"
+                    className={`w-full rounded-xl border px-3 py-2.5 text-sm font-bold text-neutral-900 placeholder:text-neutral-300 focus:border-neutral-900 focus:outline-none transition-all ${
+                      q ? "border-neutral-500 bg-neutral-50" : "border-neutral-200 bg-white"
+                    }`}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <CustomSelect
+                    label="Status"
+                    value={status}
+                    onChange={(val) => {
+                      setPage(0);
+                      setStatus(val as LeadStatus | "");
+                    }}
+                    options={[
+                      { value: "", label: "All Statuses" },
+                      ...STATUSES.map((s) => ({
+                        value: s,
+                        label: s.charAt(0).toUpperCase() + s.slice(1),
+                      })),
+                    ]}
+                  />
+                  <CustomSelect
+                    label="Type"
+                    value={leadType}
+                    onChange={(val) => {
+                      setPage(0);
+                      setLeadType(val as LeadType | "");
+                    }}
+                    options={[
+                      { value: "", label: "All Types" },
+                      { value: "inbound", label: "Inbound" },
+                      { value: "outbound", label: "Outbound" },
+                    ]}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <CustomSelect
+                    label="Assigned To"
+                    value={assignedTo}
+                    onChange={(val) => {
+                      setPage(0);
+                      setAssignedTo(val);
+                    }}
+                    options={[
+                      { value: "", label: "Anyone" },
+                      ...users.map((u) => ({
+                        value: String(u.id),
+                        label: u.full_name,
+                      })),
+                    ]}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-neutral-400">
+                    Source contains
+                  </span>
+                  <input
+                    value={source}
+                    onChange={(e) => {
+                      setPage(0);
+                      setSource(e.target.value);
+                    }}
+                    placeholder="e.g. Facebook, Website"
+                    className={`w-full rounded-xl border px-3 py-2.5 text-sm font-bold text-neutral-900 placeholder:text-neutral-300 focus:border-neutral-900 focus:outline-none transition-all ${
+                      source ? "border-neutral-500 bg-neutral-50" : "border-neutral-200 bg-white"
+                    }`}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-neutral-400">
+                      Created From
+                    </span>
+                    <input
+                      type="date"
+                      value={createdFrom}
+                      onChange={(e) => {
+                        setPage(0);
+                        setCreatedFrom(e.target.value);
+                      }}
+                      className={`w-full rounded-xl border px-3 py-2.5 text-xs font-bold text-neutral-900 focus:border-neutral-900 focus:outline-none transition-all ${
+                        createdFrom ? "border-neutral-500 bg-neutral-50" : "border-neutral-200 bg-white"
+                      }`}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-neutral-400">
+                      Created To
+                    </span>
+                    <input
+                      type="date"
+                      value={createdTo}
+                      onChange={(e) => {
+                        setPage(0);
+                        setCreatedTo(e.target.value);
+                      }}
+                      className={`w-full rounded-xl border px-3 py-2.5 text-xs font-bold text-neutral-900 focus:border-neutral-900 focus:outline-none transition-all ${
+                        createdTo ? "border-neutral-500 bg-neutral-50" : "border-neutral-200 bg-white"
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2.5 pt-2">
+                  <label
+                    className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-all ${
+                      overdueOnly
+                        ? "border-neutral-900 bg-neutral-900 text-white shadow-md shadow-neutral-100"
+                        : "border-neutral-100 bg-neutral-50/50 text-neutral-700 hover:bg-neutral-100"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={overdueOnly}
+                      onChange={(e) => {
+                        setPage(0);
+                        setOverdueOnly(e.target.checked);
+                      }}
+                      className={`h-4 w-4 rounded border-neutral-300 focus:ring-0 ${
+                        overdueOnly ? "accent-white bg-white text-neutral-900" : "text-neutral-900"
+                      }`}
+                    />
+                    <span className="text-sm font-bold">Overdue leads only</span>
+                  </label>
+                  <label
+                    className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-all ${
+                      followUpToday
+                        ? "border-neutral-900 bg-neutral-900 text-white shadow-md shadow-neutral-100"
+                        : "border-neutral-100 bg-neutral-50/50 text-neutral-700 hover:bg-neutral-100"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={followUpToday}
+                      onChange={(e) => {
+                        setPage(0);
+                        setFollowUpToday(e.target.checked);
+                      }}
+                      className={`h-4 w-4 rounded border-neutral-300 focus:ring-0 ${
+                        followUpToday ? "accent-white bg-white text-neutral-900" : "text-neutral-900"
+                      }`}
+                    />
+                    <span className="text-sm font-bold">Follow-up due today</span>
+                  </label>
+                </div>
+              </div>
+            </FilterPopover>
+            
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setImportOpen(true);
+                  setImportMsg("");
+                  setImportPreview(null);
+                  setPendingImportFile(null);
+                  requestAnimationFrame(() => {
+                    if (importFileInputRef.current) importFileInputRef.current.value = "";
+                  });
+                }}
+                className="rounded-xl border border-neutral-300 px-4 py-2.5 text-xs font-bold text-neutral-800 hover:bg-neutral-100"
+              >
+                Import
+              </button>
+              <button
+                type="button"
+                onClick={() => downloadLeadsCsv().catch(console.error)}
+                className="rounded-xl border border-neutral-300 px-4 py-2.5 text-xs font-bold text-neutral-800 hover:bg-neutral-100"
+              >
+                Export
+              </button>
+            </div>
+
+            <Link
+              href="/leads/new"
+              className="flex-1 rounded-xl bg-neutral-900 px-5 py-2.5 text-center text-xs font-black text-white shadow-md shadow-neutral-100 transition hover:opacity-90 active:scale-95 sm:flex-none"
+            >
+              Add lead
+            </Link>
+          </div>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm sm:p-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="flex min-w-0 w-full flex-1 flex-col gap-1 sm:min-w-[160px]">
-            <span className="text-xs font-semibold text-neutral-600">Search</span>
-            <input
-              value={q}
-              onChange={(e) => {
-                setPage(0);
-                setQ(e.target.value);
-              }}
-              placeholder="Name, phone, email"
-              className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-900"
-            />
-          </label>
-          <label className="flex min-w-0 w-full flex-col gap-1 sm:min-w-[120px] sm:w-auto">
-            <span className="text-xs font-semibold text-neutral-600">Status</span>
-            <select
-              value={status}
-              onChange={(e) => {
-                setPage(0);
-                setStatus(e.target.value as LeadStatus | "");
-              }}
-              className="app-select rounded-xl border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-900"
-            >
-              <option value="">All</option>
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex min-w-0 w-full flex-col gap-1 sm:min-w-[140px] sm:w-auto">
-            <span className="text-xs font-semibold text-neutral-600">Assigned</span>
-            <select
-              value={assignedTo}
-              onChange={(e) => {
-                setPage(0);
-                setAssignedTo(e.target.value);
-              }}
-              className="app-select rounded-xl border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-900"
-            >
-              <option value="">All</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.full_name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex min-w-0 w-full flex-col gap-1 sm:min-w-[120px] sm:w-auto">
-            <span className="text-xs font-semibold text-neutral-600">Type</span>
-            <select
-              value={leadType}
-              onChange={(e) => {
-                setPage(0);
-                setLeadType(e.target.value as LeadType | "");
-              }}
-              className="app-select rounded-xl border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-900"
-            >
-              <option value="">All</option>
-              <option value="inbound">Inbound</option>
-              <option value="outbound">Outbound</option>
-            </select>
-          </label>
-          <label className="flex min-w-0 w-full flex-col gap-1 sm:min-w-[140px] sm:w-auto">
-            <span className="text-xs font-semibold text-neutral-600">Source contains</span>
-            <input
-              value={source}
-              onChange={(e) => {
-                setPage(0);
-                setSource(e.target.value);
-              }}
-              placeholder="e.g. Facebook"
-              className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-900"
-            />
-          </label>
-          <label className="flex min-w-0 w-full flex-col gap-1 sm:min-w-[140px] sm:w-auto">
-            <span className="text-xs font-semibold text-neutral-600">Created from</span>
-            <input
-              type="date"
-              value={createdFrom}
-              onChange={(e) => {
-                setPage(0);
-                setCreatedFrom(e.target.value);
-              }}
-              className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-900"
-            />
-          </label>
-          <label className="flex min-w-0 w-full flex-col gap-1 sm:min-w-[140px] sm:w-auto">
-            <span className="text-xs font-semibold text-neutral-600">Created to</span>
-            <input
-              type="date"
-              value={createdTo}
-              onChange={(e) => {
-                setPage(0);
-                setCreatedTo(e.target.value);
-              }}
-              className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-900"
-            />
-          </label>
-          <label className="flex w-full cursor-pointer items-center gap-2 py-1 sm:w-auto sm:py-0 md:pt-6">
-            <input
-              type="checkbox"
-              checked={overdueOnly}
-              onChange={(e) => {
-                setPage(0);
-                setOverdueOnly(e.target.checked);
-              }}
-              className="rounded border-neutral-400"
-            />
-            <span className="text-sm font-semibold text-neutral-800">Overdue</span>
-          </label>
-          <label className="flex w-full cursor-pointer items-center gap-2 py-1 sm:w-auto sm:py-0 md:pt-6">
-            <input
-              type="checkbox"
-              checked={followUpToday}
-              onChange={(e) => {
-                setPage(0);
-                setFollowUpToday(e.target.checked);
-              }}
-              className="rounded border-neutral-400"
-            />
-            <span className="text-sm font-semibold text-neutral-800">Follow-up today</span>
-          </label>
-          <div className="flex flex-wrap items-center gap-2">
-            {activeFilterCount > 0 && (
-              <span className="text-xs font-semibold text-neutral-600">
-                {activeFilterCount} active
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="rounded-xl border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
-            >
-              Clear all filters
-            </button>
-          </div>
-        </div>
-        {filterChips.length > 0 && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-neutral-100 pt-3">
-            <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-              Active:
+      <div className="flex flex-col gap-3">
+        {filterChips.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-2 px-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">
+              Active Filters
             </span>
             {filterChips.map((c) => (
               <button
                 key={c.key}
                 type="button"
                 onClick={c.onRemove}
-                className="inline-flex items-center gap-1 rounded-full border border-neutral-300 bg-neutral-50 px-2.5 py-1 text-xs font-semibold text-neutral-800 hover:bg-neutral-100"
+                className="group inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-bold text-neutral-700 transition-all hover:border-neutral-900 hover:bg-neutral-900 hover:text-white"
               >
                 {c.label}
-                <span className="text-neutral-500" aria-hidden>
-                  ×
-                </span>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-neutral-400 group-hover:text-white transition-colors"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
               </button>
             ))}
+            <button
+              onClick={clearFilters}
+              className="text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-neutral-900 underline pointer-cursor ml-1 transition-colors"
+            >
+              Clear all
+            </button>
+          </div>
+        ) : (
+          <div className="px-1 py-1">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-300">
+              No filters applied
+            </span>
           </div>
         )}
       </div>
@@ -565,22 +641,52 @@ export default function LeadsPage() {
               e.target.value = "";
             }}
           />
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => importFileInputRef.current?.click()}
-              className="rounded-xl border border-neutral-900 bg-white px-4 py-2.5 text-sm font-semibold text-neutral-900 shadow-sm hover:bg-neutral-50"
-            >
-              Choose file…
-            </button>
-            {pendingImportFile ? (
-              <span className="text-sm font-medium text-neutral-700">
-                Selected: <span className="text-neutral-900">{pendingImportFile.name}</span>
-              </span>
-            ) : (
-              <span className="text-sm text-neutral-500">No file chosen</span>
-            )}
-          </div>
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-bold text-neutral-500 uppercase tracking-wide">Duplicate Handling</span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setImportMode("skip")}
+                    className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
+                      importMode === "skip" 
+                        ? "bg-neutral-900 text-white" 
+                        : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                    }`}
+                  >
+                    Skip Duplicates
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setImportMode("update")}
+                    className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
+                      importMode === "update" 
+                        ? "bg-neutral-900 text-white" 
+                        : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                    }`}
+                  >
+                    Update Existing
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => importFileInputRef.current?.click()}
+                  className="rounded-xl border border-neutral-900 bg-white px-4 py-2.5 text-sm font-semibold text-neutral-900 shadow-sm hover:bg-neutral-50"
+                >
+                  Choose file…
+                </button>
+                {pendingImportFile ? (
+                  <span className="text-sm font-medium text-neutral-700">
+                    Selected: <span className="text-neutral-900">{pendingImportFile.name}</span>
+                  </span>
+                ) : (
+                  <span className="text-sm text-neutral-500">No file chosen</span>
+                )}
+              </div>
+            </div>
           {importMsg && (
             <p className="mt-2 text-sm font-medium text-neutral-800">{importMsg}</p>
           )}
@@ -651,7 +757,7 @@ export default function LeadsPage() {
             <div className="divide-y divide-neutral-200">
               {data.items.map((l) => {
                 const overdue = leadIsOverdue(l);
-                const hot = coerceLeadPriority(l.priority) === "hot";
+                const hot = coerceLeadPriority(l.priority) === "HOT";
                 const rowBg = overdue ? "bg-rose-50/55" : hot ? "bg-emerald-50/50" : "";
                 return (
                   <Link

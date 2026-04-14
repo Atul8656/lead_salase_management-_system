@@ -211,17 +211,23 @@ export const leadsApi = {
   activities: (id: number) =>
     api<ActivityItem[]>(`/api/leads/${id}/activities`),
   remarks: (id: number) => api<LeadRemark[]>(`/api/leads/${id}/remarks`),
-  addRemark: (id: number, body: string) =>
+  addRemark: (id: number, body: string, createdAt?: string) =>
     api<LeadRemark>(`/api/leads/${id}/remarks`, {
       method: "POST",
-      body: JSON.stringify({ body }),
+      body: JSON.stringify({ body, created_at: createdAt }),
     }),
   stats: () => api<StatsSummary>("/api/leads/stats/summary"),
   overdue: () => api<Lead[]>("/api/leads/overdue"),
-  importFile: (file: File) => {
+  importFile: (file: File, mode: string = "skip") => {
     const fd = new FormData();
     fd.append("file", file);
-    return api<{ created: number; errors: string[] }>("/api/leads/import", {
+    return api<{ 
+      total: number;
+      success: number; 
+      updated: number; 
+      failed: number; 
+      errors: string[];
+    }>(`/api/leads/import?mode=${mode}`, {
       method: "POST",
       body: fd,
     });

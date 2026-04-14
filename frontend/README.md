@@ -6,15 +6,84 @@ First, run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+``` 
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+# 🚀 SALENLO - Lead Sales Management Dashboard
+
+## 🔗 Live Demo
+https://alliance-ever-families-rim.trycloudflare.com/dashboard
+
+---
+
+## 📌 Project Overview
+
+This project is a **SALENLO - Lead Sales Management System** designed to manage leads, track sales pipeline, and monitor team performance.
+
+It provides a centralized dashboard where users can:
+- Manage leads
+- Track follow-ups
+- Monitor conversions
+- Analyze performance
+
+---
+
+## 🎯 Key Features
+
+### 📊 Dashboard
+- Overview of total leads
+- Converted / Lost / Pending stats
+- Daily & monthly performance
+
+### 🧾 Lead Management
+- Add / Edit / Delete leads
+- Search & filter leads
+- Assign leads to team members
+
+### 🔄 Pipeline Management
+- Lead stages (New → Follow-up → Converted / Lost)
+- Activity tracking
+- Status updates
+
+### 📅 Follow-up System
+- Schedule follow-ups
+- "Follow-up Today" filter
+- Overdue tracking
+
+### 📁 Import / Export
+- Import leads via CSV
+- Export data for reports
+
+### 👥 Role Management
+- Admin / Manager / User access
+- Permission-based views
+
+---
+
+## 🛠️ Tech Stack
+
+### Frontend
+- Next.js (React.js)
+- Tailwind CSS / UI Components
+
+### Backend
+- Python (FastAPI)
+- REST APIs
+
+### Database
+- Supabase
+
+---
+
+## ⚙️ Setup Instructions
+
+### 1️⃣ Clone Project
+```bash
+git clone <your-repo-url>
+cd project-folder
+
+
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

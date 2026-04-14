@@ -11,6 +11,9 @@ import { userInitials } from "@/lib/userDisplay";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PriorityBadge } from "@/components/PriorityBadge";
 import { coerceLeadPriority } from "@/lib/leadNormalize";
+import { CustomSelect } from "@/components/CustomSelect";
+import { FollowUpBadge } from "@/components/FollowUpBadge";
+import { getFollowUpStatus } from "@/lib/formatDate";
 import {
   IconCalendar,
   IconChevronLeft,
@@ -184,7 +187,8 @@ export default function LeadDetailPage() {
     setSavingRemark(true);
     setErr("");
     try {
-      await leadsApi.addRemark(lead.id, remarkDraft.trim());
+      const timestamp = new Date().toISOString();
+      await leadsApi.addRemark(lead.id, remarkDraft.trim(), timestamp);
       setRemarkDraft("");
       await load();
     } catch (e) {
@@ -227,6 +231,7 @@ export default function LeadDetailPage() {
         body.follow_up_date = null;
       }
 
+      console.log("[DEBUG] saveLeadEdit payload:", body);
       await leadsApi.patch(lead.id, body);
       await load();
       setEditOpen(false);
@@ -297,14 +302,7 @@ export default function LeadDetailPage() {
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge status={lead.status} />
               <PriorityBadge priority={lead.priority} />
-              {lead.follow_up_date &&
-                new Date(lead.follow_up_date) < new Date() &&
-                lead.status !== "converted" &&
-                lead.status !== "lost" && (
-                  <span className="rounded-full border border-amber-200/80 bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-200">
-                    Follow-up overdue
-                  </span>
-                )}
+              <FollowUpBadge status={getFollowUpStatus(lead.follow_up_date, lead.status)} />
             </div>
           </div>
 
@@ -413,25 +411,22 @@ export default function LeadDetailPage() {
               onChange={(v) => setEditForm((f) => ({ ...f, phone: v }))}
             />
             <div>
-              <label className="block text-xs font-semibold" style={{ color: "var(--foreground-muted)" }}>
-                Priority
-              </label>
-              <select
-                value={editForm.priority}
-                onChange={(e) =>
-                  setEditForm((f) => ({
-                    ...f,
-                    priority: e.target.value as typeof editForm.priority,
-                  }))
-                }
-                className="app-select mt-1 w-full rounded-xl border px-4 py-2.5 text-sm font-medium"
-                style={inputStyle}
-              >
-                <option value="">None</option>
-                <option value="hot">Hot</option>
-                <option value="warm">Warm</option>
-                <option value="cold">Cold</option>
-              </select>
+            <CustomSelect
+              label="Priority"
+              value={editForm.priority}
+              onChange={(val) =>
+                setEditForm((f) => ({
+                  ...f,
+                  priority: val as typeof editForm.priority,
+                }))
+              }
+              options={[
+                { value: "", label: "None" },
+                { value: "HOT", label: "Hot" },
+                { value: "WARM", label: "Warm" },
+                { value: "COLD", label: "Cold" },
+              ]}
+            />
             </div>
             <EditField
               label="Website"
@@ -454,59 +449,46 @@ export default function LeadDetailPage() {
               onChange={(v) => setEditForm((f) => ({ ...f, source: v }))}
             />
             <div>
-              <label className="block text-xs font-semibold" style={{ color: "var(--foreground-muted)" }}>
-                Lead type
-              </label>
-              <select
-                value={editForm.lead_type}
-                onChange={(e) =>
-                  setEditForm((f) => ({ ...f, lead_type: e.target.value as LeadType }))
-                }
-                className="app-select mt-1 w-full rounded-xl border px-4 py-2.5 font-medium"
-                style={inputStyle}
-              >
-                <option value="inbound">Inbound</option>
-                <option value="outbound">Outbound</option>
-              </select>
+            <CustomSelect
+              label="Lead type"
+              value={editForm.lead_type}
+              onChange={(val) =>
+                setEditForm((f) => ({ ...f, lead_type: val as LeadType }))
+              }
+              options={[
+                { value: "inbound", label: "Inbound" },
+                { value: "outbound", label: "Outbound" },
+              ]}
+            />
             </div>
             <div>
-              <label className="block text-xs font-semibold" style={{ color: "var(--foreground-muted)" }}>
-                Status
-              </label>
-              <select
-                value={editForm.status}
-                onChange={(e) =>
-                  setEditForm((f) => ({ ...f, status: e.target.value as LeadStatus }))
-                }
-                className="app-select mt-1 w-full rounded-xl border px-4 py-2.5 font-medium"
-                style={inputStyle}
-              >
-                {STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+            <CustomSelect
+              label="Status"
+              value={editForm.status}
+              onChange={(val) =>
+                setEditForm((f) => ({ ...f, status: val as LeadStatus }))
+              }
+              options={STATUSES.map((s) => ({
+                value: s,
+                label: s.charAt(0).toUpperCase() + s.slice(1),
+              }))}
+            />
             </div>
             <div>
-              <label className="block text-xs font-semibold" style={{ color: "var(--foreground-muted)" }}>
-                Assigned to
-              </label>
-              <select
-                value={editForm.assigned_to}
-                onChange={(e) =>
-                  setEditForm((f) => ({ ...f, assigned_to: e.target.value }))
-                }
-                className="app-select mt-1 w-full rounded-xl border px-4 py-2.5 font-medium"
-                style={inputStyle}
-              >
-                <option value="">Unassigned</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.full_name} · {memberLabel(u)} ({u.email})
-                  </option>
-                ))}
-              </select>
+            <CustomSelect
+              label="Assigned to"
+              value={editForm.assigned_to}
+              onChange={(val) =>
+                setEditForm((f) => ({ ...f, assigned_to: val }))
+              }
+              options={[
+                { value: "", label: "Unassigned" },
+                ...users.map((u) => ({
+                  value: String(u.id),
+                  label: `${u.full_name} · ${memberLabel(u)}`,
+                })),
+              ]}
+            />
             </div>
             <EditField
               label="Interest"
@@ -614,7 +596,12 @@ export default function LeadDetailPage() {
               <ContactIconRow
                 icon={<IconCalendar />}
                 label="Follow-up"
-                value={lead.follow_up_date ? formatRemarkTimestamp(lead.follow_up_date) : null}
+                value={
+                  <div className="flex flex-col gap-1 items-start">
+                    <span>{lead.follow_up_date ? formatRemarkTimestamp(lead.follow_up_date) : "—"}</span>
+                    <FollowUpBadge status={getFollowUpStatus(lead.follow_up_date, lead.status)} />
+                  </div>
+                }
               />
             </div>
 
@@ -827,12 +814,13 @@ function ContactIconRow({
 }: {
   icon: ReactNode;
   label: string;
-  value: string | null;
+  value: ReactNode;
   href?: string | null;
   external?: boolean;
 }) {
-  const empty = value == null || !String(value).trim();
-  const display = empty ? "—" : String(value).trim();
+  const isStr = typeof value === "string";
+  const empty = !value || (isStr && !value.trim());
+  const display = empty ? "—" : value;
 
   return (
     <div className="flex gap-4 py-4 first:pt-0 last:pb-0">

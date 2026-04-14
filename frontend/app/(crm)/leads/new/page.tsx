@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { leadsApi, usersApi } from "@/lib/api";
 import type { LeadStatus, LeadType, User } from "@/lib/types";
+import { CustomSelect } from "@/components/CustomSelect";
 
 function memberLabel(u: User) {
   return u.member_id ?? u.login_id ?? `M${String(u.id).padStart(3, "0")}`;
@@ -238,82 +239,73 @@ export default function NewLeadPage() {
         {step === 1 && (
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-xs font-semibold text-neutral-700">Source</label>
-              <select
-                value={form.source}
-                onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))}
-                className="app-select mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
-              >
-                <option value="">Select…</option>
-                <option value="facebook">Facebook</option>
-                <option value="website">Website</option>
-                <option value="referral">Referral</option>
-                <option value="other">Other</option>
-              </select>
+            <CustomSelect
+              label="Source"
+              value={form.source}
+              onChange={(val) => setForm((f) => ({ ...f, source: val }))}
+              options={[
+                { value: "", label: "Select…" },
+                { value: "facebook", label: "Facebook" },
+                { value: "website", label: "Website" },
+                { value: "referral", label: "Referral" },
+                { value: "other", label: "Other" },
+              ]}
+            />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-neutral-700">Lead type</label>
-              <select
-                value={form.lead_type}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, lead_type: e.target.value as LeadType }))
-                }
-                className="app-select mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
-              >
-                <option value="inbound">Inbound</option>
-                <option value="outbound">Outbound</option>
-              </select>
+            <CustomSelect
+              label="Lead type"
+              value={form.lead_type}
+              onChange={(val) =>
+                setForm((f) => ({ ...f, lead_type: val as LeadType }))
+              }
+              options={[
+                { value: "inbound", label: "Inbound" },
+                { value: "outbound", label: "Outbound" },
+              ]}
+            />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-neutral-700">Status</label>
-              <select
-                value={form.status}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, status: e.target.value as LeadStatus }))
-                }
-                className="app-select mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
-              >
-                {STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+            <CustomSelect
+              label="Status"
+              value={form.status}
+              onChange={(val) =>
+                setForm((f) => ({ ...f, status: val as LeadStatus }))
+              }
+              options={STATUSES.map((s) => ({
+                value: s,
+                label: s.charAt(0).toUpperCase() + s.slice(1),
+              }))}
+            />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-neutral-700">Priority</label>
-              <select
-                value={form.priority}
-                onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    priority: e.target.value as typeof form.priority,
-                  }))
-                }
-                className="app-select mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
-              >
-                <option value="">None</option>
-                <option value="hot">Hot</option>
-                <option value="warm">Warm</option>
-                <option value="cold">Cold</option>
-              </select>
+            <CustomSelect
+              label="Priority"
+              value={form.priority}
+              onChange={(val) =>
+                setForm((f) => ({
+                  ...f,
+                  priority: val as typeof form.priority,
+                }))
+              }
+              options={[
+                { value: "", label: "None" },
+                { value: "hot", label: "Hot" },
+                { value: "warm", label: "Warm" },
+                { value: "cold", label: "Cold" },
+              ]}
+            />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-neutral-700">Assigned to *</label>
-              <select
-                required
-                value={form.assigned_to}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, assigned_to: e.target.value }))
-                }
-                className="app-select mt-1 w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 font-medium text-neutral-900 focus:border-neutral-900"
-              >
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.full_name} · {memberLabel(u)} ({u.email})
-                  </option>
-                ))}
-              </select>
+            <CustomSelect
+              label="Assigned to *"
+              value={form.assigned_to}
+              onChange={(val) => setForm((f) => ({ ...f, assigned_to: val }))}
+              options={users.map((u) => ({
+                value: String(u.id),
+                label: `${u.full_name} · ${memberLabel(u)}`,
+              }))}
+            />
             </div>
             <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-neutral-700">
