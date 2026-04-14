@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "node --max-old-space-size=4096 node_modules/next/dist/bin/next dev --webpack",
     "dev:turbo": "node --max-old-space-size=4096 node_modules/next/dist/bin/next dev",
-    "build": "node --max-old-space-size=4096 node_modules/next/dist/bin/next build",
+    "build": "node --max-old-space-size=4096 node_modules/next/dist/bin/next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "tunnel": "cloudflared tunnel --url http://localhost:8000"
