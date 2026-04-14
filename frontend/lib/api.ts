@@ -7,6 +7,7 @@ import type {
   MemberCreatedResponse,
   NextMemberIdResponse,
   StatsSummary,
+  Todo,
   User,
 } from "./types";
 
@@ -266,6 +267,17 @@ export const followupsApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  complete: (id: number) =>
+    api<FollowUp>(`/api/followups/${id}/complete`, { method: "POST" }),
+};
+
+export const todosApi = {
+  list: () => api<Todo[]>("/api/todos"),
+  create: (body: { title: string }) =>
+    api<Todo>("/api/todos", { method: "POST", body: JSON.stringify(body) }),
+  patch: (id: number, body: Partial<{ title: string; is_completed: boolean; is_deleted: boolean }>) =>
+    api<Todo>(`/api/todos/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  remove: (id: number) => api(`/api/todos/${id}`, { method: "DELETE" }),
 };
 
 export async function downloadLeadsCsv() {

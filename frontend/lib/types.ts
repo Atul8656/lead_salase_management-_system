@@ -84,6 +84,7 @@ export interface NextMemberIdResponse {
 export interface FollowUp {
   id: number;
   lead_id: number;
+  lead_name?: string | null;
   user_id: number;
   scheduled_at: string;
   notes: string | null;
@@ -102,4 +103,14 @@ export interface StatsSummary {
 export interface LeadListResponse {
   items: Lead[];
   total: number;
+}
+
+export interface Todo {
+  id: number;
+  user_id: number;
+  title: string;
+  is_completed: boolean;
+  is_deleted: boolean;
+  created_at: string;
+  updated_at: string;
 }

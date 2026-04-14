@@ -50,7 +50,7 @@ def can_access_lead(user: User, lead: Lead) -> bool:
 
 
 def get_lead(db: Session, lead_id: int) -> Optional[Lead]:
-    return db.query(Lead).filter(Lead.id == lead_id).first()
+    return db.query(Lead).filter(Lead.id == lead_id, Lead.is_deleted == False).first()
 
 
 def get_lead_for_user(db: Session, lead_id: int, user: User) -> Lead:
@@ -136,7 +136,7 @@ def search_leads(
        overdue_only: bool = False,
     follow_up_on: Optional[date] = None,
 ) -> Tuple[List[Lead], int]:
-    query = db.query(Lead)
+    query = db.query(Lead).filter(Lead.is_deleted == False)
     if user.role == UserRole.SALES_AGENT:
         query = query.filter(Lead.assigned_to == user.id)
 
@@ -247,7 +247,7 @@ def add_lead_remark(db: Session, lead_id: int, user_id: int, data: lead_schema.L
 
 def get_leads(db: Session, skip: int = 0, limit: int = 100, user: Optional[User] = None):
     """Used for CSV export and legacy callers; respects sales scope when user passed."""
-    q = db.query(Lead)
+    q = db.query(Lead).filter(Lead.is_deleted == False)
     if user is not None and user.role == UserRole.SALES_AGENT:
         q = q.filter(Lead.assigned_to == user.id)
     return q.order_by(Lead.created_at.desc()).offset(skip).limit(limit).all()
@@ -258,6 +258,7 @@ def get_overdue_leads(db: Session, user: User, skip: int = 0, limit: int = 200):
     q = (
         db.query(Lead)
         .filter(
+            Lead.is_deleted == False,
             Lead.follow_up_date.isnot(None),
             Lead.follow_up_date < now,
             _lead_status_text().notin_(_terminal_status_strings()),
@@ -275,9 +276,9 @@ def stats_for_user(db: Session, user: User) -> dict:
             return query.filter(Lead.assigned_to == user.id)
         return query
 
-    total = scope(db.query(Lead)).count()
+    total = scope(db.query(Lead).filter(Lead.is_deleted == False)).count()
     by_status = (
-        scope(db.query(Lead))
+        scope(db.query(Lead).filter(Lead.is_deleted == False))
         .with_entities(Lead.status, func.count(Lead.id))
         .group_by(Lead.status)
         .all()
@@ -289,6 +290,7 @@ def stats_for_user(db: Session, user: User) -> dict:
 
     today = date.today()
     base = db.query(Lead).filter(
+        Lead.is_deleted == False,
         Lead.follow_up_date.isnot(None),
         cast(Lead.follow_up_date, Date) == today,
     )
@@ -297,6 +299,7 @@ def stats_for_user(db: Session, user: User) -> dict:
     followups_today = base.count()
 
     overdue_q = db.query(Lead).filter(
+        Lead.is_deleted == False,
         Lead.follow_up_date.isnot(None),
         Lead.follow_up_date < datetime.utcnow(),
         _lead_status_text().notin_(_terminal_status_strings()),
@@ -443,7 +446,13 @@ def update_lead(db: Session, lead_id: int, lead_update: LeadUpdate, user_id: int
              raise HTTPException(status_code=400, detail="Name cannot be empty")
 
         setattr(db_lead, key, coerced)
-        changes.append(f"{key}: {_activity_val(old_val)} → {_activity_val(coerced)}")
+
+        if key == "assigned_to":
+            old_n = db.query(User.full_name).filter(User.id == old_val).scalar() if old_val else "Unassigned"
+            new_n = db.query(User.full_name).filter(User.id == coerced).scalar() if coerced else "Unassigned"
+            changes.append(f"assigned_to: {old_n} → {new_n}")
+        else:
+            changes.append(f"{key}: {_activity_val(old_val)} → {_activity_val(coerced)}")
 
     if changes:
         try:
@@ -467,10 +476,10 @@ def update_lead(db: Session, lead_id: int, lead_update: LeadUpdate, user_id: int
 
 
 def delete_lead(db: Session, lead_id: int) -> bool:
-    db_lead = get_lead(db, lead_id)
+    db_lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not db_lead:
         return False
-    db.delete(db_lead)
+    db_lead.is_deleted = True
     db.commit()
     return True
 

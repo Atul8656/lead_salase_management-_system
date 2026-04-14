@@ -14,25 +14,25 @@ export default function FollowUpsPage() {
   const [when, setWhen] = useState("");
   const [note, setNote] = useState("");
 
-  const load = useCallback(async () => {
+  async function load() {
     try {
       const [o, m] = await Promise.all([
         leadsApi.overdue(),
         followupsApi.mine(),
       ]);
-      setOverdue(o);
-      setMine(m);
+      setOverdue(o || []);
+      setMine(m || []); // Backend returns list of followups
       setErr("");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to load");
     }
-  }, []);
+  }
 
   useEffect(() => {
     load();
     const t = setInterval(load, 30000);
     return () => clearInterval(t);
-  }, [load]);
+  }, []);
 
   async function schedule(e: React.FormEvent) {
     e.preventDefault();
@@ -52,6 +52,15 @@ export default function FollowUpsPage() {
     }
   }
 
+  async function complete(id: number) {
+    try {
+      await followupsApi.complete(id);
+      await load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Completion failed");
+    }
+  }
+
   return (
     <div className="mx-auto max-w-4xl space-y-8">
       <div>
@@ -62,7 +71,7 @@ export default function FollowUpsPage() {
       </div>
 
       {err && (
-        <p className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm font-semibold text-neutral-900">
+        <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-900">
           {err}
         </p>
       )}
@@ -73,9 +82,12 @@ export default function FollowUpsPage() {
           {overdue.map((l) => (
             <li key={l.id} className="flex items-center justify-between text-sm">
               <span className="font-semibold text-neutral-900">{l.name}</span>
-              <Link href={`/leads/${l.id}`} className="app-link">
-                Open
-              </Link>
+              <div className="flex gap-3">
+                <span className="text-xs font-bold text-red-600">OVERDUE</span>
+                <Link href={`/leads/${l.id}`} className="app-link">
+                  Open
+                </Link>
+              </div>
             </li>
           ))}
           {overdue.length === 0 && (
@@ -90,6 +102,7 @@ export default function FollowUpsPage() {
           <div>
             <label className="text-xs font-semibold text-neutral-700">Lead ID</label>
             <input
+              type="number"
               className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 font-medium text-neutral-900 focus:border-neutral-900"
               value={leadId}
               onChange={(e) => setLeadId(e.target.value)}
@@ -113,13 +126,14 @@ export default function FollowUpsPage() {
               className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 font-medium text-neutral-900 focus:border-neutral-900"
               value={note}
               onChange={(e) => setNote(e.target.value)}
+              placeholder="What needs to be done?"
             />
           </div>
           <button
             type="submit"
-            className="rounded-xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800"
+            className="rounded-xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800 transition-colors"
           >
-            Save
+            Save Schedule
           </button>
         </form>
       </section>
@@ -130,18 +144,34 @@ export default function FollowUpsPage() {
           {mine.map((f) => (
             <li
               key={f.id}
-              className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 pb-3"
+              className="flex flex-wrap items-center justify-between gap-4 border-b border-neutral-100 pb-3 last:border-0 last:pb-0"
             >
-              <span className="font-medium text-neutral-700">
-                Lead #{f.lead_id} · {formatAppDateTime(new Date(f.scheduled_at))}
-              </span>
-              <Link href={`/leads/${f.lead_id}`} className="app-link">
-                View lead
-              </Link>
+              <div className="flex flex-col">
+                <span className="font-bold text-neutral-900">
+                  {f.lead_name || "Lead"}
+                </span>
+                <span className="text-xs text-neutral-500">
+                  {formatAppDateTime(new Date(f.scheduled_at))}
+                  {f.notes && <span className="ml-2 italic">"{f.notes}"</span>}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => complete(f.id)}
+                  className="rounded-lg border border-neutral-200 bg-white px-3 py-1 text-xs font-bold text-neutral-600 hover:bg-neutral-50 transition-colors"
+                >
+                  Mark Done
+                </button>
+                <Link href={`/leads/${f.lead_id}`} className="app-link">
+                  View
+                </Link>
+              </div>
             </li>
           ))}
           {mine.length === 0 && (
-            <li className="font-medium text-neutral-500">No follow-ups logged.</li>
+            <li className="py-4 text-center font-medium text-neutral-500">
+              No follow-ups logged.
+            </li>
           )}
         </ul>
       </section>

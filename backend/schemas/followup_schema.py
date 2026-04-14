@@ -20,6 +20,7 @@ class FollowUp(FollowUpBase):
     user_id: int
     is_completed: bool
     created_at: datetime
+    lead_name: Optional[str] = None
 
     class Config:
         from_attributes = True

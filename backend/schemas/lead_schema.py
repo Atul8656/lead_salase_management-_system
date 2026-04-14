@@ -136,6 +136,7 @@ class Lead(LeadBase):
     updated_at: Optional[datetime] = None
     category: Optional[str] = None
     industry: Optional[str] = None
+    is_deleted: bool = False
 
     class Config:
         from_attributes = True

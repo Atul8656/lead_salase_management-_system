@@ -107,7 +107,6 @@ export default function TeamPage() {
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-neutral-200 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-              <th className="px-6 py-3">Member ID</th>
               <th className="px-6 py-3">Name</th>
               <th className="px-6 py-3">Email</th>
               <th className="px-6 py-3">Mobile</th>
@@ -121,9 +120,6 @@ export default function TeamPage() {
                 className="cursor-pointer border-b border-neutral-100 transition hover:bg-neutral-100/80"
                 onClick={() => router.push(`/team/${u.id}`)}
               >
-                <td className="px-6 py-3 font-mono text-sm font-semibold text-neutral-900">
-                  {displayMemberId(u)}
-                </td>
                 <td className="px-6 py-3 font-semibold text-neutral-900">{u.full_name}</td>
                 <td className="px-6 py-3 font-medium text-neutral-600">{u.email}</td>
                 <td className="px-6 py-3 font-medium text-neutral-600">{u.phone ?? "—"}</td>
@@ -145,14 +141,11 @@ export default function TeamPage() {
         >
           <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-6 shadow-xl">
             <h3 className="text-lg font-bold text-neutral-900">Add member</h3>
-            <p className="mt-1 text-sm text-neutral-500">
-              Member ID is assigned automatically ({previewId || "…"}).
-            </p>
 
             {created ? (
               <div className="mt-4 space-y-3 text-sm">
                 <p className="font-medium text-neutral-800">
-                  {created.full_name} · <span className="font-mono">{displayMemberId(created)}</span>
+                  {created.full_name}
                 </p>
                 <p className="text-neutral-600">
                   Temporary password:{" "}
@@ -195,14 +188,7 @@ export default function TeamPage() {
                     className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-700">Member ID</label>
-                  <input
-                    readOnly
-                    value={previewId || "…"}
-                    className="mt-1 w-full cursor-not-allowed rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm font-mono text-neutral-700"
-                  />
-                </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-neutral-700">Email *</label>
                   <input

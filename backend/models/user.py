@@ -43,3 +43,4 @@ class User(Base):
     leads = relationship("Lead", back_populates="assignee")
     followups = relationship("FollowUp", back_populates="user")
     activities = relationship("Activity", back_populates="user")
+    todos = relationship("Todo", back_populates="user")

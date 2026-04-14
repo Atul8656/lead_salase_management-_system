@@ -22,6 +22,7 @@ const nav = [
   { href: "/leads", label: "Leads" },
   { href: "/pipeline", label: "Pipeline" },
   { href: "/follow-ups", label: "Follow-ups" },
+  { href: "/todo", label: "Todo" },
   { href: "/team", label: "Team" },
 ];
 
@@ -56,7 +57,7 @@ function MobileNavIcon({
   name,
   className,
 }: {
-  name: "home" | "leads" | "pipeline" | "followups" | "team";
+  name: "home" | "leads" | "pipeline" | "followups" | "team" | "todo";
   className?: string;
 }) {
   const cn = className ?? "h-5 w-5";
@@ -101,6 +102,16 @@ function MobileNavIcon({
           />
         </svg>
       );
+    case "todo":
+      return (
+        <svg className={cn} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+      );
     case "team":
       return (
         <svg className={cn} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden>
@@ -120,7 +131,7 @@ const mobileNavItems: { href: string; label: string; icon: "home" | "leads" | "p
   { href: "/dashboard", label: "Home", icon: "home" },
   { href: "/leads", label: "Leads", icon: "leads" },
   { href: "/pipeline", label: "Board", icon: "pipeline" },
-  { href: "/follow-ups", label: "F/U", icon: "followups" },
+  { href: "/todo", label: "Todo", icon: "todo" },
   { href: "/team", label: "Team", icon: "team" },
 ];
 

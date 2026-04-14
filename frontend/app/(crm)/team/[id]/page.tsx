@@ -130,7 +130,7 @@ export default function TeamMemberProfilePage() {
         <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-2xl font-bold text-neutral-900">{member.full_name}</h2>
-            <p className="mt-1 text-sm font-medium text-neutral-500">{displayMemberId(member)}</p>
+
           </div>
           {isAdmin && !editing && (
             <button
@@ -234,12 +234,7 @@ export default function TeamMemberProfilePage() {
                 {(member.role || "").replace(/_/g, " ")}
               </dd>
             </div>
-            <div className="flex justify-between gap-4 border-b border-neutral-100 pb-3">
-              <dt className="font-medium text-neutral-500">Member ID</dt>
-              <dd className="font-mono text-right font-semibold text-neutral-900">
-                {displayMemberId(member)}
-              </dd>
-            </div>
+
             <div className="flex justify-between gap-4 pt-1">
               <dt className="font-medium text-neutral-500">Join date</dt>
               <dd className="text-right font-semibold text-neutral-900">

@@ -30,9 +30,7 @@ import {
   IconWhatsApp,
 } from "@/components/lead-detail-icons";
 
-function memberLabel(u: User): string {
-  return u.member_id ?? `M${String(u.id).padStart(3, "0")}`;
-}
+
 
 const STATUSES: LeadStatus[] = [
   "new",
@@ -72,6 +70,72 @@ function formatActivityLabel(action: string): string {
 type TimelineEntry =
   | { kind: "remark"; key: string; at: string; remark: LeadRemark }
   | { kind: "activity"; key: string; at: string; activity: ActivityItem };
+
+function IconMessageCircle({ className = "size-4" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+    </svg>
+  );
+}
+
+function ActionCircle({
+  icon,
+  tooltip,
+  onClick,
+  href,
+}: {
+  icon: ReactNode;
+  tooltip: string;
+  onClick?: () => void;
+  href?: string;
+}) {
+  const base =
+    "group relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition-all duration-200 hover:border-black hover:bg-black hover:text-white active:scale-95 shadow-sm";
+
+  const tip = (
+    <span className="pointer-events-none absolute -top-9 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-black px-2 py-1 text-[9px] font-bold text-white opacity-0 transition-all duration-200 group-hover:opacity-100 shadow-xl">
+      {tooltip}
+      <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-l-[3px] border-r-[3px] border-t-[3px] border-l-transparent border-r-transparent border-t-black" />
+    </span>
+  );
+
+  const content = (
+    <>
+      {tip}
+      {icon}
+    </>
+  );
+
+  if (href) {
+    if (href.startsWith("/")) {
+      return (
+        <Link href={href} className={base}>
+          {content}
+        </Link>
+      );
+    }
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className={base}>
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <button type="button" onClick={onClick} className={base}>
+      {content}
+    </button>
+  );
+}
 
 export default function LeadDetailPage() {
   const params = useParams();
@@ -243,7 +307,7 @@ export default function LeadDetailPage() {
   }
 
   async function removeLead() {
-    if (!lead || !confirm("Delete this lead permanently?")) return;
+    if (!lead || !confirm("Delete this lead? (Removed from UI only)")) return;
     try {
       await leadsApi.remove(lead.id);
       router.push("/leads");
@@ -292,69 +356,51 @@ export default function LeadDetailPage() {
         style={{ borderRadius: "16px" }}
       >
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0 flex-1 space-y-3">
-            <h1 className="text-2xl font-bold tracking-tight sm:text-[1.75rem]" style={{ color: "var(--foreground)" }}>
-              {lead.name}
-            </h1>
-            <p className="text-sm font-medium sm:text-[15px]" style={{ color: "var(--foreground-muted)" }}>
-              {lead.company_name ?? "No company on file"}
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge status={lead.status} />
-              <PriorityBadge priority={lead.priority} />
-              <FollowUpBadge status={getFollowUpStatus(lead.follow_up_date, lead.status)} />
+          <div className="flex-1 space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-2xl font-bold tracking-tight sm:text-[1.75rem]" style={{ color: "var(--foreground)" }}>
+                  {lead.name}
+                </h1>
+                <p className="mt-1 text-sm font-medium" style={{ color: "var(--foreground-muted)" }}>
+                  {lead.company_name ?? "No company on file"}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2 pt-1">
+                <ActionCircle
+                  onClick={() => setEditOpen((v) => !v)}
+                  tooltip={editOpen ? "Close Editor" : "Edit Lead"}
+                  icon={<IconPencil className="size-4" />}
+                />
+                <ActionCircle
+                  onClick={removeLead}
+                  tooltip="Delete Lead"
+                  icon={<IconTrash className="size-4" />}
+                />
+              </div>
             </div>
-          </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
-            {whatsapp && (
-              <a
-                href={whatsapp}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold shadow-sm transition duration-200 hover:-translate-y-px sm:w-auto"
-                style={{
-                  borderColor: "var(--border)",
-                  background: "var(--card)",
-                  color: "var(--foreground)",
-                  boxShadow: "var(--shadow-card)",
-                }}
-              >
-                <IconWhatsApp className="size-4 text-emerald-600 dark:text-emerald-400" />
-                WhatsApp
-              </a>
-            )}
-            <Link
-              href="/pipeline"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold shadow-sm transition duration-200 hover:-translate-y-px sm:w-auto"
-              style={{
-                borderColor: "var(--border)",
-                background: "var(--card)",
-                color: "var(--foreground)",
-                boxShadow: "var(--shadow-card)",
-              }}
-            >
-              <IconColumns className="size-4 text-neutral-900 opacity-80" />
-              Pipeline
-            </Link>
-            <button
-              type="button"
-              onClick={() => setEditOpen((v) => !v)}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-md transition duration-200 hover:-translate-y-px hover:opacity-95 sm:w-auto"
-              style={{ background: "var(--accent)", boxShadow: "var(--shadow-card)" }}
-            >
-              <IconPencil className="size-4 text-white/90" />
-              {editOpen ? "Close editor" : "Edit lead"}
-            </button>
-            <button
-              type="button"
-              onClick={removeLead}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition duration-200 hover:-translate-y-px hover:bg-red-50 dark:hover:bg-red-950/30 sm:w-auto"
-              style={{ borderColor: "var(--border)", color: "#b91c1c" }}
-            >
-              <IconTrash className="size-4" />
-              Delete
-            </button>
+            <div className="flex flex-wrap items-center justify-between gap-4 border-t border-neutral-100 pt-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusBadge status={lead.status} />
+                <PriorityBadge priority={lead.priority} />
+                <FollowUpBadge status={getFollowUpStatus(lead.follow_up_date, lead.status)} />
+              </div>
+              <div className="flex items-center gap-2">
+                {whatsapp && (
+                  <ActionCircle
+                    href={whatsapp}
+                    tooltip="WhatsApp"
+                    icon={<IconMessageCircle className="size-4" />}
+                  />
+                )}
+                <ActionCircle
+                  href="/pipeline"
+                  tooltip="Pipeline"
+                  icon={<IconColumns className="size-4" />}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </header>
@@ -485,7 +531,7 @@ export default function LeadDetailPage() {
                 { value: "", label: "Unassigned" },
                 ...users.map((u) => ({
                   value: String(u.id),
-                  label: `${u.full_name} · ${memberLabel(u)}`,
+                  label: u.full_name,
                 })),
               ]}
             />
@@ -699,7 +745,7 @@ export default function LeadDetailPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
                           <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
-                            {item.activity.user_name || `User #${item.activity.user_id}`}
+                            {item.activity.user_name || "Team Member"}
                           </span>
                           <time className="text-[11px] tabular-nums" style={{ color: "var(--foreground-muted)" }}>
                             {formatRemarkTimestamp(item.activity.created_at)}

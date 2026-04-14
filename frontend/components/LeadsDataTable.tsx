@@ -13,7 +13,7 @@ import { getFollowUpStatus } from "@/lib/formatDate";
 export function assigneeLabel(users: User[], assignedTo: number | null): string {
   if (assignedTo == null) return "—";
   const u = users.find((x) => x.id === assignedTo);
-  return u ? `${u.full_name}` : `#${assignedTo}`;
+  return u ? `${u.full_name}` : "Unknown";
 }
 
 const leadLinkClass =

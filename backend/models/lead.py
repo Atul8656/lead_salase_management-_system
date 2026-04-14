@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, TypeDecorator, Float, cast
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, TypeDecorator, Float, cast, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import ENUM as PG_ENUM
 import enum
@@ -142,6 +142,7 @@ class Lead(Base):
     converted_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    is_deleted = Column(Boolean, default=False, index=True)
 
     assignee = relationship("User", back_populates="leads")
     followups = relationship("FollowUp", back_populates="lead")

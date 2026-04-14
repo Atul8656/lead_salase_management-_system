@@ -87,7 +87,6 @@ export default function UserAccountMenu({ variant }: Props) {
           <p className="truncate text-sm text-neutral-600">{user.email}</p>
           <p className="mt-1 text-xs font-medium text-neutral-500">
             {(user.role || "").replace(/_/g, " ")}
-            {user.login_id ? ` · ${user.login_id}` : ""}
           </p>
         </div>
       )}

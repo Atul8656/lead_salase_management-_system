@@ -1,118 +1,105 @@
-# SALENLO — Sales & lead management
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-Full-stack CRM:
+## Getting Started
 
-- **Frontend:** Next.js (React) — dev server default `http://localhost:3000`
-- **Backend:** FastAPI + uvicorn — default `http://127.0.0.1:8000`
-- **Database:** Supabase (PostgreSQL)
-
-> This repo uses **Next.js**, not Create React App. Environment variables use `NEXT_PUBLIC_API_URL` (recommended) or `REACT_APP_API_URL` (supported for parity with CRA-style docs). Both are read in `frontend/lib/api.ts`.
-
-## Quick start (local)
-
-### 1. Backend
+First, run the development server:
 
 ```bash
-cd backend
-python -m venv venv
-venv\Scripts\activate # Windows
-# source venv/bin/activate     # macOS/Linux
-pip install -r requirements.txt
-```
-
-Copy `backend/.env.example` to `backend/.env` and set `DATABASE_URL`, `SECRET_KEY`, etc.
-
-Run API on all interfaces so Cloudflare Tunnel can reach it:
-
-```bash
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-
-- Health: [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
-- Swagger: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-
-### 2. Frontend
-
-```bash
-cd frontend
-npm install
-cp .env.local.example .env.local   # optional; see Cloudflare section below
 npm run dev
-```
+``` 
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-The browser logs which API URL is used, for example:
+# 🚀 SALENLO - Lead Sales Management Dashboard
 
-`[SALENLO] API base URL: http://127.0.0.1:8000 (from default (...))`
+## 🔗 Live Demo
+https://alliance-ever-families-rim.trycloudflare.com/dashboard
 
-## CORS
+---
 
-The API allows:
+## 📌 Project Overview
 
-- `http://localhost:3000`, `http://127.0.0.1:3000` (and `:3001` variants)
-- Any origin matching `https://*.trycloudflare.com` (Cloudflare quick tunnels)
-- Extra origins from `CORS_ORIGINS` in `backend/.env` (comma-separated)
+This project is a **SALENLO - Lead Sales Management System** designed to manage leads, track sales pipeline, and monitor team performance.
 
-Methods and headers: `*`. Credentials are allowed (for future cookie-based auth; the app uses `Authorization: Bearer` today).
+It provides a centralized dashboard where users can:
+- Manage leads
+- Track follow-ups
+- Monitor conversions
+- Analyze performance
 
-## Cloudflare Tunnel (public API URL)
+---
 
-Use this when you want phones or teammates to hit **your laptop’s** FastAPI without deploying.
+## 🎯 Key Features
 
-### Install `cloudflared`
+### 📊 Dashboard
+- Overview of total leads
+- Converted / Lost / Pending stats
+- Daily & monthly performance
 
-- **Windows (winget):** `winget install --id Cloudflare.cloudflared`
-- **macOS (Homebrew):** `brew install cloudflared`
-- **Docs:** [https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
+### 🧾 Lead Management
+- Add / Edit / Delete leads
+- Search & filter leads
+- Assign leads to team members
 
-### Run tunnel (separate terminal)
+### 🔄 Pipeline Management
+- Lead stages (New → Follow-up → Converted / Lost)
+- Activity tracking
+- Status updates
 
-With the backend already running on port **8000**:
+### 📅 Follow-up System
+- Schedule follow-ups
+- "Follow-up Today" filter
+- Overdue tracking
 
+### 📁 Import / Export
+- Import leads via CSV
+- Export data for reports
+
+### 👥 Role Management
+- Admin / Manager / User access
+- Permission-based views
+
+---
+
+## 🛠️ Tech Stack
+
+### Frontend
+- Next.js (React.js)
+- Tailwind CSS / UI Components
+
+### Backend
+- Python (FastAPI)
+- REST APIs
+
+### Database
+- Supabase
+
+---
+
+## ⚙️ Setup Instructions
+
+### 1️⃣ Clone Project
 ```bash
-cloudflared tunnel --url http://localhost:8000
-```
+git clone <your-repo-url>
+cd project-folder
 
-Or from repo root / `frontend`:
 
-```bash
-npm run tunnel
-```
 
-`cloudflared` prints a URL like `https://random-words.trycloudflare.com`. **Copy it** (no trailing slash).
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-### Point the frontend at the tunnel
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-1. In `frontend/.env.local` set **one** of:
+## Learn More
 
- ```env
-   NEXT_PUBLIC_API_URL=https://random-words.trycloudflare.com
-   ```
+To learn more about Next.js, take a look at the following resources:
 
-   or
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-   ```env
-   REACT_APP_API_URL=https://random-words.trycloudflare.com
-   ```
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-2. Restart the Next dev server (`npm run dev`).
+## Deploy on Vercel
 
-3. Open the app at `http://localhost:3000` and confirm the console line shows your tunnel URL.
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-4. Sanity-check the API in the browser:  
-   `https://random-words.trycloudflare.com/docs`
-
-> **Note:** Quick-tunnel hostnames change each time you restart `cloudflared` (unless you use a named tunnel). After each new URL, update `frontend/.env.local` and restart `npm run dev`.
-
-## Troubleshooting
-
-| Issue | What to check |
-|--------|----------------|
-| CORS errors | Frontend origin must be localhost:3000 or a `*.trycloudflare.com` page, or listed in `CORS_ORIGINS`. |
-| `Cannot reach the server` | Backend running? Tunnel URL correct in `.env.local`? Try `/docs` on that URL. |
-| Old API URL after tunnel restart | Update `.env.local` and restart Next. |
-
-## Features
-
-- Lead management, pipeline board, follow-ups, team
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
