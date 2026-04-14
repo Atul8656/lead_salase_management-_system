@@ -44,7 +44,7 @@ function buildLeadQuery(params?: LeadListParams): string {
 }
 
 /** Default when no public env is set (local uvicorn). */
-const DEFAULT_API_BASE = "http://127.0.0.1:8000";
+const DEFAULT_API_BASE = "https://lead-salal-management.onrender.com";
 
 /**
  * Resolve API origin for browser fetch:
