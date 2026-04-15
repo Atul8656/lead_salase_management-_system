@@ -255,78 +255,85 @@ async def verify_otp(body: VerifyOtpIn, db: Session = Depends(get_db)):
     return {"message": "OTP verified and user created"}
 
 
-@router.post("/forgot-password/send-otp")
+# Routes for forgot password OTP flow
+_forgot_otp_store: dict[str, dict] = {}
+_FORGOT_OTP_TTL_SECONDS = 300
+_FORGOT_OTP_MAX_ATTEMPTS = 3
+
+def _generate_otp() -> str:
+    import secrets
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+@router.post("/forgot-password")
 async def forgot_password_send_otp(body: ForgotPasswordSendOtpIn, db: Session = Depends(get_db)):
-    now_ts = time.time()
-    _cleanup_expired_otp(now_ts)
     email = body.email.lower().strip()
-
-    last_sent_at = _forgot_otp_last_sent_at.get(email)
-    if last_sent_at and (now_ts - last_sent_at) < _FORGOT_OTP_RESEND_COOLDOWN_SECONDS:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Please wait before requesting OTP again",
-        )
-
     user = user_service.get_user_by_email(db, email)
-    if user:
-        otp = _generate_otp()
-        _forgot_otp_store[email] = (otp, now_ts)
-        _forgot_otp_invalid_attempts.pop(email, None)
-        _forgot_otp_blocked_until.pop(email, None)
-        try:
-            await mail_service.send_forgot_password_otp_email(email, otp)
-        except Exception as e:
-            print(f"DEBUG: forgot_password email error: {str(e)}")
-            raise HTTPException(status_code=500, detail="Unable to send OTP email")
+    
+    if not user:
+        # Security: Don't reveal if email exists or not, but return success
+        return {"message": "If the email is registered, OTP has been sent"}
 
-    _forgot_otp_last_sent_at[email] = now_ts
-    return {"message": "If the email is registered, OTP has been sent"}
+    otp = _generate_otp()
+    _forgot_otp_store[email] = {
+        "otp": otp,
+        "expires_at": time.time() + _FORGOT_OTP_TTL_SECONDS,
+        "attempts": 0
+    }
+    
+    try:
+        await mail_service.send_forgot_password_otp_email(email, otp)
+        return {"message": "OTP sent successfully"}
+    except Exception as e:
+        print(f"ERROR: Forgot password OTP send failure: {str(e)}")
+        raise HTTPException(status_code=500, detail="Unable to send OTP email")
 
-
-@router.post("/forgot-password/reset")
-def forgot_password_reset(body: ForgotPasswordResetIn, db: Session = Depends(get_db)):
-    now_ts = time.time()
-    _cleanup_expired_otp(now_ts)
-
+@router.post("/verify-otp")
+async def verify_otp(body: VerifyOtpIn):
     email = body.email.lower().strip()
-    provided_otp = (body.otp or "").strip()
-    new_password = (body.new_password or "").strip()
+    provided_otp = body.otp.strip()
+    
+    otp_data = _forgot_otp_store.get(email)
+    if not otp_data:
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+    
+    if time.time() > otp_data["expires_at"]:
+        _forgot_otp_store.pop(email, None)
+        raise HTTPException(status_code=400, detail="OTP has expired")
+    
+    if otp_data["attempts"] >= _FORGOT_OTP_MAX_ATTEMPTS:
+        _forgot_otp_store.pop(email, None)
+        raise HTTPException(status_code=429, detail="Too many invalid attempts. Please request a new OTP.")
+    
+    if otp_data["otp"] != provided_otp:
+        otp_data["attempts"] += 1
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+    
+    return {"message": "OTP verified successfully"}
 
-    blocked_until = _forgot_otp_blocked_until.get(email, 0)
-    if blocked_until > now_ts:
-        raise HTTPException(status_code=429, detail="Too many invalid attempts. Try later.")
+@router.post("/reset-password")
+async def forgot_password_reset(body: ForgotPasswordResetIn, db: Session = Depends(get_db)):
+    email = body.email.lower().strip()
+    provided_otp = body.otp.strip()
+    new_password = body.new_password.strip()
+    
+    otp_data = _forgot_otp_store.get(email)
+    if not otp_data or otp_data["otp"] != provided_otp or time.time() > otp_data["expires_at"]:
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
 
     user = user_service.get_user_by_email(db, email)
     if not user:
-        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+        raise HTTPException(status_code=404, detail="User not found")
 
-    otp_data = _forgot_otp_store.get(email)
-    if not otp_data:
-        _forgot_otp_invalid_attempts[email] = _forgot_otp_invalid_attempts.get(email, 0) + 1
-        if _forgot_otp_invalid_attempts[email] >= _FORGOT_OTP_MAX_ATTEMPTS:
-            _forgot_otp_blocked_until[email] = now_ts + _FORGOT_OTP_BLOCK_SECONDS
-            raise HTTPException(status_code=429, detail="Too many invalid attempts. Try later.")
-        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
-
-    saved_otp, created_ts = otp_data
-    if (now_ts - created_ts) > _FORGOT_OTP_TTL_SECONDS or not secrets.compare_digest(saved_otp, provided_otp):
-        _forgot_otp_invalid_attempts[email] = _forgot_otp_invalid_attempts.get(email, 0) + 1
-        if _forgot_otp_invalid_attempts[email] >= _FORGOT_OTP_MAX_ATTEMPTS:
-            _forgot_otp_blocked_until[email] = now_ts + _FORGOT_OTP_BLOCK_SECONDS
-            raise HTTPException(status_code=429, detail="Too many invalid attempts. Try later.")
-        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
-
+    # Update password
     user_service.validate_password_policy(new_password)
     user.hashed_password = hash_password(new_password)
+    
     try:
         db.commit()
     except SQLAlchemyError:
         db.rollback()
-        raise HTTPException(status_code=500, detail="Something went wrong")
+        raise HTTPException(status_code=500, detail="Failed to reset password")
     finally:
         _forgot_otp_store.pop(email, None)
-        _forgot_otp_invalid_attempts.pop(email, None)
-        _forgot_otp_blocked_until.pop(email, None)
 
     return {"message": "Password reset successful"}

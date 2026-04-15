@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASS: str = ""
+    RESEND_API_KEY: str = ""
 
     class Config:
         env_file = ".env"
