@@ -43,23 +43,20 @@ function buildLeadQuery(params?: LeadListParams): string {
   return qs ? `?${qs}` : "";
 }
 
-/** Default when no public env is set (local uvicorn). */
-/** 
- * Default to empty string for relative paths. 
- * This leverages the proxy/rewrite in next.config.js and avoids CORS issues.
- */
+/** Empty = relative `/api/...` (Next.js rewrite to BACKEND_PROXY_URL in dev/deploy). */
 const DEFAULT_API_BASE = "";
 
 /**
  * Resolve API origin for browser fetch:
- * - NEXT_PUBLIC_API_URL or REACT_APP_API_URL (see next.config env) → use that (e.g. Cloudflare tunnel)
- * - else → http://127.0.0.1:8000
+ * - NEXT_PUBLIC_API_URL or REACT_APP_API_URL → absolute origin (e.g. https://….onrender.com)
+ * - "/", empty, or unset → relative paths (same origin; Next/Netlify rewrites if configured)
+ * Trailing slashes are stripped so paths like /api/... join correctly.
  */
 function getApiBase(): string {
-  const v =
+  const raw =
     process.env.NEXT_PUBLIC_API_URL?.trim() || process.env.REACT_APP_API_URL?.trim();
-  if (v) return v.replace(/\/$/, "");
-  return DEFAULT_API_BASE.replace(/\/$/, "");
+  if (!raw || raw === "/") return DEFAULT_API_BASE.replace(/\/$/, "");
+  return raw.replace(/\/$/, "");
 }
 
 let apiBaseLogged = false;
@@ -72,7 +69,10 @@ function logApiBaseOnce(): void {
     : process.env.REACT_APP_API_URL?.trim()
       ? "REACT_APP_API_URL"
       : `default (${DEFAULT_API_BASE})`;
-  console.info(`[SALENLO] API base URL: ${base} (from ${source})`);
+  console.info(
+    `[SALENLO] API base URL: ${base || "(relative — same origin)"} (from ${source}). ` +
+      "NEXT_PUBLIC_* is inlined at build time; set it in Netlify env before `npm run build`."
+  );
 }
 
 /** Full URL or path for fetch, e.g. /api/auth/login */
@@ -80,6 +80,13 @@ function apiUrl(apiPath: string): string {
   const base = getApiBase();
   if (base) return `${base}${apiPath}`;
   return apiPath;
+}
+
+/** Absolute URL string for logging and fetch (relative paths use current origin in the browser). */
+function resolveFetchUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) return url;
+  if (typeof window !== "undefined") return new URL(url, window.location.origin).href;
+  return url;
 }
 
 function explainNetworkError(): Error {
@@ -162,15 +169,36 @@ export async function api<T>(
 
 export async function loginRequest(usernameOrEmail: string, password: string) {
   logApiBaseOnce();
+  const path = "/api/auth/login";
+  const url = apiUrl(path);
+  const fullUrl = resolveFetchUrl(url);
+
+  console.log("[SALENLO] login — API base (NEXT_PUBLIC_API_URL):", getApiBase() || "(empty → same-origin)");
+  console.log("[SALENLO] login — full request URL:", fullUrl);
+
   const body = new URLSearchParams();
   body.set("username", usernameOrEmail);
   body.set("password", password);
-  const res = await safeFetch(apiUrl("/api/auth/login"), {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-  });
-  if (!res.ok) throw new Error(await parseError(res));
+
+  let res: Response;
+  try {
+    res = await fetch(fullUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+  } catch (e) {
+    console.error("[SALENLO] login — fetch error:", e);
+    if (e instanceof TypeError) throw explainNetworkError();
+    throw e;
+  }
+
+  console.log("[SALENLO] login — response status:", res.status, res.statusText);
+  if (!res.ok) {
+    const msg = await parseError(res);
+    console.error("[SALENLO] login — error detail:", msg);
+    throw new Error(msg);
+  }
   return res.json() as Promise<{ access_token: string; token_type: string }>;
 }
 
