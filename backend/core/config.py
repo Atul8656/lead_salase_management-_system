@@ -8,6 +8,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # Match .env
     # Comma-separated origins for browser (Cloudflare Pages, tunnel URL, etc.). Empty = allow all.
     CORS_ORIGINS: str = ""
+    EMAIL_HOST: str = ""
+    EMAIL_PORT: int = 0
+    EMAIL_USER: str = ""
+    EMAIL_PASS: str = ""
 
     class Config:
         env_file = ".env"

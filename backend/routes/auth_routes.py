@@ -123,17 +123,12 @@ def _generate_random_password(length: int = 12) -> str:
 
 
 def _send_otp_email(email_to: str, otp: str) -> None:
-    host = os.getenv("EMAIL_HOST", "").strip()
-    port_raw = os.getenv("EMAIL_PORT", "").strip()
-    user = os.getenv("EMAIL_USER", "").strip()
-    password = os.getenv("EMAIL_PASS", "").strip()
+    host = (settings.EMAIL_HOST or "").strip()
+    port = int(settings.EMAIL_PORT or 0)
+    user = (settings.EMAIL_USER or "").strip()
+    password = (settings.EMAIL_PASS or "").strip()
 
-    if not (host and port_raw and user and password):
-        raise HTTPException(status_code=500, detail="Email service not configured")
-
-    try:
-        port = int(port_raw)
-    except ValueError:
+    if not (host and port and user and password):
         raise HTTPException(status_code=500, detail="Email service not configured")
 
     msg = EmailMessage()
@@ -163,17 +158,12 @@ def _send_otp_email(email_to: str, otp: str) -> None:
 
 
 def _send_credentials_email(email_to: str, generated_password: str) -> None:
-    host = os.getenv("EMAIL_HOST", "").strip()
-    port_raw = os.getenv("EMAIL_PORT", "").strip()
-    user = os.getenv("EMAIL_USER", "").strip()
-    password = os.getenv("EMAIL_PASS", "").strip()
+    host = (settings.EMAIL_HOST or "").strip()
+    port = int(settings.EMAIL_PORT or 0)
+    user = (settings.EMAIL_USER or "").strip()
+    password = (settings.EMAIL_PASS or "").strip()
 
-    if not (host and port_raw and user and password):
-        raise HTTPException(status_code=500, detail="Email service not configured")
-
-    try:
-        port = int(port_raw)
-    except ValueError:
+    if not (host and port and user and password):
         raise HTTPException(status_code=500, detail="Email service not configured")
 
     msg = EmailMessage()
@@ -203,17 +193,12 @@ def _send_credentials_email(email_to: str, generated_password: str) -> None:
 
 
 def _send_forgot_password_otp_email(email_to: str, otp: str) -> None:
-    host = os.getenv("EMAIL_HOST", "").strip()
-    port_raw = os.getenv("EMAIL_PORT", "").strip()
-    user = os.getenv("EMAIL_USER", "").strip()
-    password = os.getenv("EMAIL_PASS", "").strip()
+    host = (settings.EMAIL_HOST or "").strip()
+    port = int(settings.EMAIL_PORT or 0)
+    user = (settings.EMAIL_USER or "").strip()
+    password = (settings.EMAIL_PASS or "").strip()
 
-    if not (host and port_raw and user and password):
-        raise HTTPException(status_code=500, detail="Email service not configured")
-
-    try:
-        port = int(port_raw)
-    except ValueError:
+    if not (host and port and user and password):
         raise HTTPException(status_code=500, detail="Email service not configured")
 
     msg = EmailMessage()
