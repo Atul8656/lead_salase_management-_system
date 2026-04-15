@@ -21,7 +21,15 @@ class User(Base):
     phone = Column(String(64), nullable=True)
     avatar_url = Column(String(1024), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=True)
-    role = Column(PG_ENUM(UserRole, name="userrole", create_type=False), default=UserRole.SALES_AGENT)
+    role = Column(
+        PG_ENUM(
+            UserRole,
+            name="userrole",
+            create_type=False,
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
+        default=UserRole.SALES_AGENT,
+    )
     is_active = Column(Boolean, default=True)
 
 
