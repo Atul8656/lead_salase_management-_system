@@ -40,7 +40,7 @@ app.include_router(todo_routes.router, prefix="/api/todos", tags=["todos"])
 def startup_create_tables() -> None:
     init_db()
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 async def root():
     return {"message": "SALENLO API", "docs": "/docs"}
 

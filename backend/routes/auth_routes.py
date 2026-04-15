@@ -1,10 +1,7 @@
 import time
 import os
-import smtplib
-import ssl
 import secrets
 from collections import defaultdict, deque
-from email.message import EmailMessage
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -12,7 +9,7 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from db.connection import get_db
-from services import user_service
+from services import user_service, mail_service
 from schemas.user_schema import Token, UserRegisterIn, UserRegisteredOut
 from datetime import timedelta
 from core.config import settings
@@ -41,16 +38,6 @@ _forgot_otp_invalid_attempts: dict[str, int] = {}
 _forgot_otp_blocked_until: dict[str, float] = {}
 
 
-def _get_email_config() -> tuple[str, int, str, str]:
-    host = (settings.SMTP_HOST or "").strip()
-    port = int(settings.SMTP_PORT or 0)
-    user = (settings.SMTP_USER or "").strip()
-    password = (settings.SMTP_PASS or "").strip()
-    if password.lower() in {"your_app_password_here", "app_password_here"}:
-        password = ""
-    if not (host and port and user and password):
-        raise HTTPException(status_code=500, detail="Email service not configured")
-    return host, port, user, password
 
 
 class SendOtpIn(BaseModel):
@@ -134,94 +121,6 @@ def _generate_random_password(length: int = 12) -> str:
     return "".join(base)
 
 
-def _send_otp_email(email_to: str, otp: str) -> None:
-    host, port, user, password = _get_email_config()
-
-    msg = EmailMessage()
-    msg["Subject"] = "Your OTP for registration"
-    msg["From"] = user
-    msg["To"] = email_to
-    msg.set_content(
-        "Your OTP is: "
-        f"{otp}\n\n"
-        "This OTP will expire in 5 minutes.\n"
-        "If you did not request this, please ignore this email."
-    )
-
-    context = ssl.create_default_context()
-    try:
-        if port == 465:
-            with smtplib.SMTP_SSL(host, port, context=context, timeout=20) as server:
-                server.login(user, password)
-                server.send_message(msg)
-        else:
-            with smtplib.SMTP(host, port, timeout=20) as server:
-                server.starttls(context=context)
-                server.login(user, password)
-                server.send_message(msg)
-    except Exception as e:
-        print(f"DEBUG: _send_otp_email error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Unable to send OTP email")
-
-
-def _send_credentials_email(email_to: str, generated_password: str) -> None:
-    host, port, user, password = _get_email_config()
-
-    msg = EmailMessage()
-    msg["Subject"] = "Your account credentials"
-    msg["From"] = user
-    msg["To"] = email_to
-    msg.set_content(
-        "Your account has been created successfully.\n\n"
-        f"Email: {email_to}\n"
-        f"Password: {generated_password}\n\n"
-        "Please login and change your password."
-    )
-
-    context = ssl.create_default_context()
-    try:
-        if port == 465:
-            with smtplib.SMTP_SSL(host, port, context=context, timeout=20) as server:
-                server.login(user, password)
-                server.send_message(msg)
-        else:
-            with smtplib.SMTP(host, port, timeout=20) as server:
-                server.starttls(context=context)
-                server.login(user, password)
-                server.send_message(msg)
-    except Exception as e:
-        print(f"DEBUG: _send_credentials_email error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Unable to send credentials email")
-
-
-def _send_forgot_password_otp_email(email_to: str, otp: str) -> None:
-    host, port, user, password = _get_email_config()
-
-    msg = EmailMessage()
-    msg["Subject"] = "Your OTP for password reset"
-    msg["From"] = user
-    msg["To"] = email_to
-    msg.set_content(
-        "Your password reset OTP is: "
-        f"{otp}\n\n"
-        "This OTP will expire in 5 minutes.\n"
-        "If you did not request this, please ignore this email."
-    )
-
-    context = ssl.create_default_context()
-    try:
-        if port == 465:
-            with smtplib.SMTP_SSL(host, port, context=context, timeout=20) as server:
-                server.login(user, password)
-                server.send_message(msg)
-        else:
-            with smtplib.SMTP(host, port, timeout=20) as server:
-                server.starttls(context=context)
-                server.login(user, password)
-                server.send_message(msg)
-    except Exception as e:
-        print(f"DEBUG: _send_forgot_password_otp_email error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Unable to send OTP email")
 
 
 @router.post("/register", response_model=UserRegisteredOut)
@@ -259,7 +158,7 @@ def login(
 
 
 @router.post("/send-otp")
-def send_otp(body: SendOtpIn):
+async def send_otp(body: SendOtpIn):
     now_ts = time.time()
     _cleanup_expired_otp(now_ts)
     email = body.email.lower().strip()
@@ -274,12 +173,16 @@ def send_otp(body: SendOtpIn):
     otp = _generate_otp()
     _otp_store[email] = (otp, now_ts)
     _otp_last_sent_at[email] = now_ts
-    _send_otp_email(body.email, otp)
+    try:
+        await mail_service.send_otp_email(body.email, otp)
+    except Exception as e:
+        print(f"DEBUG: send_otp email error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Unable to send OTP email. Please check configuration.")
     return {"message": "OTP sent successfully"}
 
 
 @router.post("/verify-otp")
-def verify_otp(body: VerifyOtpIn, db: Session = Depends(get_db)):
+async def verify_otp(body: VerifyOtpIn, db: Session = Depends(get_db)):
     now_ts = time.time()
     _cleanup_expired_otp(now_ts)
 
@@ -343,12 +246,17 @@ def verify_otp(body: VerifyOtpIn, db: Session = Depends(get_db)):
         _otp_invalid_attempts.pop(email, None)
         _otp_blocked_until.pop(email, None)
 
-    _send_credentials_email(email, random_password)
+    try:
+        await mail_service.send_credentials_email(email, random_password)
+    except Exception as e:
+        print(f"DEBUG: verify_otp email error: {str(e)}")
+        # We don't raise here because the user is already created, 
+        # but we should log it. In a real app, maybe use a background task.
     return {"message": "OTP verified and user created"}
 
 
 @router.post("/forgot-password/send-otp")
-def forgot_password_send_otp(body: ForgotPasswordSendOtpIn, db: Session = Depends(get_db)):
+async def forgot_password_send_otp(body: ForgotPasswordSendOtpIn, db: Session = Depends(get_db)):
     now_ts = time.time()
     _cleanup_expired_otp(now_ts)
     email = body.email.lower().strip()
@@ -366,7 +274,11 @@ def forgot_password_send_otp(body: ForgotPasswordSendOtpIn, db: Session = Depend
         _forgot_otp_store[email] = (otp, now_ts)
         _forgot_otp_invalid_attempts.pop(email, None)
         _forgot_otp_blocked_until.pop(email, None)
-        _send_forgot_password_otp_email(email, otp)
+        try:
+            await mail_service.send_forgot_password_otp_email(email, otp)
+        except Exception as e:
+            print(f"DEBUG: forgot_password email error: {str(e)}")
+            raise HTTPException(status_code=500, detail="Unable to send OTP email")
 
     _forgot_otp_last_sent_at[email] = now_ts
     return {"message": "If the email is registered, OTP has been sent"}
