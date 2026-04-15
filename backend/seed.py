@@ -3,6 +3,7 @@ from db.connection import SessionLocal
 import db.base  # noqa: F401 — register all models with SQLAlchemy
 from models.user import User, UserRole
 from models.lead import Lead, LeadStatus
+from core.security import hash_password
 
 
 def seed_data():
@@ -15,8 +16,8 @@ def seed_data():
                 login_id="admin",
                 email="admin@crm.com",
                 full_name="System Admin",
-                password_plain="admin123",
-                hashed_password=None,
+                password_plain=None,
+                hashed_password=hash_password("admin123"),
                 role=UserRole.ADMIN,
             )
             db.add(admin)
@@ -25,9 +26,9 @@ def seed_data():
         else:
             if not admin.login_id:
                 admin.login_id = "admin"
-            if not admin.password_plain:
-                admin.password_plain = "admin123"
-                admin.hashed_password = None
+            if not admin.hashed_password:
+                admin.password_plain = None
+                admin.hashed_password = hash_password("admin123")
             db.commit()
 
         agent = db.query(User).filter(User.email == "agent@crm.com").first()
@@ -37,8 +38,8 @@ def seed_data():
                 login_id="agent",
                 email="agent@crm.com",
                 full_name="Sales Agent 1",
-                password_plain="agent123",
-                hashed_password=None,
+                password_plain=None,
+                hashed_password=hash_password("agent123"),
                 role=UserRole.SALES_AGENT,
             )
             db.add(agent)
@@ -46,9 +47,9 @@ def seed_data():
         else:
             if not agent.login_id:
                 agent.login_id = "agent"
-            if not agent.password_plain:
-                agent.password_plain = "agent123"
-                agent.hashed_password = None
+            if not agent.hashed_password:
+                agent.password_plain = None
+                agent.hashed_password = hash_password("agent123")
             db.commit()
 
         admin = db.query(User).filter(User.email == "admin@crm.com").first()
@@ -77,8 +78,8 @@ def seed_data():
             db.commit()
 
         print("Seeding completed successfully.")
-    except Exception as e:
-        print(f"Error seeding data: {e}")
+    except Exception:
+        print("Error seeding data.")
     finally:
         db.close()
 

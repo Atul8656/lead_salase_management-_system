@@ -11,6 +11,7 @@ app = FastAPI(title="SALENLO API", redirect_slashes=False)
 # Explicit dev origins + any from .env. Quick tunnels (*.trycloudflare.com) match via regex
 # so you do not need to edit .env every time the tunnel hostname changes.
 _default_origins = [
+    "https://salenlo.netlify.app",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:3001",
@@ -21,7 +22,7 @@ _cors = list(dict.fromkeys([*_default_origins, *_env_origins]))
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

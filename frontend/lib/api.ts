@@ -227,6 +227,34 @@ export async function registerRequest(payload: {
   return res.json() as Promise<UserRegisteredResponse>;
 }
 
+export async function sendOtpRequest(payload: {
+  email: string;
+}): Promise<{ message: string }> {
+  logApiBaseOnce();
+  const res = await safeFetch(apiUrl("/api/auth/send-otp"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ message: string }>;
+}
+
+export async function verifyOtpRequest(payload: {
+  email: string;
+  otp: string;
+  full_name: string;
+}): Promise<{ message: string }> {
+  logApiBaseOnce();
+  const res = await safeFetch(apiUrl("/api/auth/verify-otp"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ message: string }>;
+}
+
 export const leadsApi = {
   list: (params?: LeadListParams) =>
     api<LeadListResponse>(`/api/leads/${buildLeadQuery(params)}`),

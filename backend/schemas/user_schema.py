@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field, ConfigDict, computed_field, model_validator
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, model_validator
 from typing import Optional
 from models.user import UserRole
 
@@ -17,12 +17,6 @@ class UserPublic(BaseModel):
     phone: Optional[str] = None
     avatar_url: Optional[str] = None
     created_at: Optional[datetime] = None
-
-    @computed_field
-    @property
-    def member_id(self) -> str:
-        return f"M{self.id:03d}"
-
 
 class MemberAdminUpdate(BaseModel):
     """Admin-only updates for a team member profile."""
@@ -50,7 +44,7 @@ class NextMemberIdOut(BaseModel):
 
 
 class UserRegisterIn(BaseModel):
-    """Sign-up: email + full name; password_plain is auto-set as firstname@lastname."""
+    """Sign-up: email + full name."""
 
     email: EmailStr
     full_name: str = Field(..., min_length=2, max_length=200)
@@ -66,12 +60,6 @@ class UserRegisteredOut(BaseModel):
     generated_password: str
 
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-
-    @computed_field
-    @property
-    def member_id(self) -> str:
-        return f"M{self.id:03d}"
-
 
 class UserUpdate(BaseModel):
     login_id: Optional[str] = Field(None, min_length=2, max_length=64)
