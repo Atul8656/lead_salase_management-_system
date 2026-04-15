@@ -1,35 +1,50 @@
-from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
-from pydantic import EmailStr
+import smtplib
+import ssl
+import anyio
+from email.message import EmailMessage
 from core.config import settings
 
-def get_mail_config():
-    # Strip whitespace to avoid configuration errors
-    host = (settings.SMTP_HOST or "smtp.gmail.com").strip()
+def _send_email_sync(subject: str, recipients: list[str], html_content: str):
     user = (settings.SMTP_USER or "").strip()
     password = (settings.SMTP_PASS or "").strip()
-    port = settings.SMTP_PORT
-
-    # For Gmail, port 587 uses STARTTLS, port 465 uses SSL/TLS
-    use_ssl = (port == 465)
-    use_starttls = (port == 587)
+    host = (settings.SMTP_HOST or "smtp.gmail.com").strip()
     
-    # Use smtp.googlemail.com as a fallback/alternative for better DNS resolution if needed
-    if host == "smtp.gmail.com":
-        host = "smtp.googlemail.com"
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = user
+    msg["To"] = ", ".join(recipients)
+    msg.add_alternative(html_content, subtype="html")
 
-    return ConnectionConfig(
-        MAIL_USERNAME=user,
-        MAIL_PASSWORD=password,
-        MAIL_FROM=user,
-        MAIL_PORT=port,
-        MAIL_SERVER=host,
-        MAIL_STARTTLS=use_starttls,
-        MAIL_SSL_TLS=use_ssl,
-        USE_CREDENTIALS=True,
-        VALIDATE_CERTS=True
-    )
+    # List of ports to try (default to 587 then 465)
+    ports_to_try = [587, 465]
+    if settings.SMTP_PORT in ports_to_try:
+        ports_to_try.remove(settings.SMTP_PORT)
+        ports_to_try.insert(0, settings.SMTP_PORT)
 
-async def send_otp_email(email_to: EmailStr, otp: str):
+    last_error = None
+    for port in ports_to_try:
+        try:
+            print(f"DEBUG: Attempting to send email via {host}:{port}")
+            if port == 465:
+                context = ssl.create_default_context()
+                with smtplib.SMTP_SSL(host, port, context=context, timeout=15) as server:
+                    server.login(user, password)
+                    server.send_message(msg)
+            else:
+                with smtplib.SMTP(host, port, timeout=15) as server:
+                    server.starttls(context=ssl.create_default_context())
+                    server.login(user, password)
+                    server.send_message(msg)
+            print(f"DEBUG: Email sent successfully via port {port}")
+            return True
+        except Exception as e:
+            last_error = e
+            print(f"DEBUG: Failed to send via port {port}: {str(e)}")
+            continue
+    
+    raise last_error
+
+async def send_otp_email(email_to: str, otp: str):
     html = f"""
     <html>
     <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
@@ -47,20 +62,9 @@ async def send_otp_email(email_to: EmailStr, otp: str):
     </body>
     </html>
     """
-    message = MessageSchema(
-        subject="Your OTP Verification Code",
-        recipients=[email_to],
-        body=html,
-        subtype=MessageType.html
-    )
-    fm = FastMail(get_mail_config())
-    try:
-        await fm.send_message(message)
-    except Exception as e:
-        print(f"CRITICAL: Mail connection failed on port {settings.SMTP_PORT}. Error: {str(e)}")
-        raise e
+    await anyio.to_thread.run_sync(_send_email_sync, "Your OTP Verification Code", [email_to], html)
 
-async def send_credentials_email(email_to: EmailStr, password: str):
+async def send_credentials_email(email_to: str, password: str):
     html = f"""
     <html>
     <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
@@ -79,16 +83,9 @@ async def send_credentials_email(email_to: EmailStr, password: str):
     </body>
     </html>
     """
-    message = MessageSchema(
-        subject="Your Account Credentials",
-        recipients=[email_to],
-        body=html,
-        subtype=MessageType.html
-    )
-    fm = FastMail(get_mail_config())
-    await fm.send_message(message)
+    await anyio.to_thread.run_sync(_send_email_sync, "Your Account Credentials", [email_to], html)
 
-async def send_forgot_password_otp_email(email_to: EmailStr, otp: str):
+async def send_forgot_password_otp_email(email_to: str, otp: str):
     html = f"""
     <html>
     <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
@@ -106,11 +103,4 @@ async def send_forgot_password_otp_email(email_to: EmailStr, otp: str):
     </body>
     </html>
     """
-    message = MessageSchema(
-        subject="Password Reset Request",
-        recipients=[email_to],
-        body=html,
-        subtype=MessageType.html
-    )
-    fm = FastMail(get_mail_config())
-    await fm.send_message(message)
+    await anyio.to_thread.run_sync(_send_email_sync, "Password Reset Request", [email_to], html)
