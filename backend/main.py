@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 from routes import auth_routes, lead_routes, user_routes, followup_routes, todo_routes
+from database import init_db
+from db import base as _models  # noqa: F401
 
 # redirect_slashes=False avoids 307 /api/leads → /api/leads/ where clients drop Authorization
 app = FastAPI(title="SALENLO API", redirect_slashes=False)
@@ -31,6 +33,11 @@ app.include_router(user_routes.router, prefix="/api/users", tags=["users"])
 app.include_router(lead_routes.router, prefix="/api/leads", tags=["leads"])
 app.include_router(followup_routes.router, prefix="/api/followups", tags=["followups"])
 app.include_router(todo_routes.router, prefix="/api/todos", tags=["todos"])
+
+
+@app.on_event("startup")
+def startup_create_tables() -> None:
+    init_db()
 
 @app.get("/")
 async def root():
