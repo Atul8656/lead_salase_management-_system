@@ -3,16 +3,26 @@ from pydantic import EmailStr
 from core.config import settings
 
 def get_mail_config():
-    # Detect if we should use SSL or STARTTLS based on port
-    use_ssl = settings.SMTP_PORT == 465
-    use_starttls = settings.SMTP_PORT == 587
+    # Strip whitespace to avoid configuration errors
+    host = (settings.SMTP_HOST or "smtp.gmail.com").strip()
+    user = (settings.SMTP_USER or "").strip()
+    password = (settings.SMTP_PASS or "").strip()
+    port = settings.SMTP_PORT
+
+    # For Gmail, port 587 uses STARTTLS, port 465 uses SSL/TLS
+    use_ssl = (port == 465)
+    use_starttls = (port == 587)
     
+    # Use smtp.googlemail.com as a fallback/alternative for better DNS resolution if needed
+    if host == "smtp.gmail.com":
+        host = "smtp.googlemail.com"
+
     return ConnectionConfig(
-        MAIL_USERNAME=settings.SMTP_USER,
-        MAIL_PASSWORD=settings.SMTP_PASS,
-        MAIL_FROM=settings.SMTP_USER,
-        MAIL_PORT=settings.SMTP_PORT,
-        MAIL_SERVER=settings.SMTP_HOST,
+        MAIL_USERNAME=user,
+        MAIL_PASSWORD=password,
+        MAIL_FROM=user,
+        MAIL_PORT=port,
+        MAIL_SERVER=host,
         MAIL_STARTTLS=use_starttls,
         MAIL_SSL_TLS=use_ssl,
         USE_CREDENTIALS=True,
@@ -44,7 +54,11 @@ async def send_otp_email(email_to: EmailStr, otp: str):
         subtype=MessageType.html
     )
     fm = FastMail(get_mail_config())
-    await fm.send_message(message)
+    try:
+        await fm.send_message(message)
+    except Exception as e:
+        print(f"CRITICAL: Mail connection failed on port {settings.SMTP_PORT}. Error: {str(e)}")
+        raise e
 
 async def send_credentials_email(email_to: EmailStr, password: str):
     html = f"""
