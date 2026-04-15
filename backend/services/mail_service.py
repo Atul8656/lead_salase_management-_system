@@ -23,31 +23,47 @@ def _send_email_sync(subject: str, recipients: list[str], html_content: str):
     msg["To"] = ", ".join(recipients)
     msg.add_alternative(html_content, subtype="html")
 
-    # List of ports to try (default to 587 then 465)
-    ports_to_try = [587, 465]
-    if settings.SMTP_PORT in ports_to_try:
-        ports_to_try.remove(settings.SMTP_PORT)
-        ports_to_try.insert(0, settings.SMTP_PORT)
+    # List of combinations to try (Host, Port, Type)
+    # We include direct Google SMTP IPs as fallback in case DNS is throttled
+    gmail_ips = ["74.125.143.108", "173.194.73.108", "64.233.184.108"]
+    
+    attempts = [
+        (host, 587, "STARTTLS"),
+        (host, 465, "SSL"),
+        ("smtp.googlemail.com", 587, "STARTTLS"),
+        ("smtp.googlemail.com", 465, "SSL")
+    ]
+    
+    # Add direct IP attempts
+    for ip in gmail_ips:
+        attempts.append((ip, 587, "STARTTLS"))
+        attempts.append((ip, 465, "SSL"))
 
     last_error = None
-    for port in ports_to_try:
+    for target_host, target_port, mode in attempts:
         try:
-            print(f"DEBUG: Attempting IPv4-only connection via {host}:{port}")
-            if port == 465:
+            print(f"DEBUG: Diagnostic - Checking {target_host}:{target_port} ({mode})")
+            
+            # Fast socket check to see if port is even open
+            with socket.create_connection((target_host, target_port), timeout=5):
+                pass
+                
+            if mode == "SSL":
                 context = ssl.create_default_context()
-                with SMTP_SSL_v4(host, port, context=context, timeout=20) as server:
+                with SMTP_SSL_v4(target_host, target_port, context=context, timeout=15) as server:
                     server.login(user, password)
                     server.send_message(msg)
             else:
-                with SMTP_v4(host, port, timeout=20) as server:
+                with SMTP_v4(target_host, target_port, timeout=15) as server:
                     server.starttls(context=ssl.create_default_context())
                     server.login(user, password)
                     server.send_message(msg)
-            print(f"DEBUG: Email sent successfully via port {port}")
+            
+            print(f"DEBUG: SUCCESS - Email sent via {target_host}:{target_port}")
             return True
         except Exception as e:
             last_error = e
-            print(f"DEBUG: Failed to send via port {port}: {str(e)}")
+            print(f"DEBUG: Failed {target_host}:{target_port} - {str(e)}")
             continue
     
     raise last_error
