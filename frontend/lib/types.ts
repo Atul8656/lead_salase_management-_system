@@ -62,7 +62,6 @@ export interface ActivityItem {
 export interface User {
   id: number;
   login_id: string | null;
-  member_id?: string;
   email: string;
   full_name: string;
   role: string;

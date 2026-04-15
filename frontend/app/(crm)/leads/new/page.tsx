@@ -7,10 +7,6 @@ import { leadsApi, usersApi } from "@/lib/api";
 import type { LeadPriority, LeadStatus, LeadType, User } from "@/lib/types";
 import { CustomSelect } from "@/components/CustomSelect";
 
-function memberLabel(u: User) {
-  return u.member_id ?? u.login_id ?? `M${String(u.id).padStart(3, "0")}`;
-}
-
 const STATUSES: LeadStatus[] = [
   "new",
   "contacted",
@@ -220,7 +216,7 @@ export default function NewLeadPage() {
               onChange={(v) => setForm((f) => ({ ...f, linkedin_url: v }))}
             />
             <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-neutral-700">
+              <label className="block text-xs font-semibold text-black">
                 Description / requirements
               </label>
               <textarea
@@ -303,12 +299,12 @@ export default function NewLeadPage() {
               onChange={(val) => setForm((f) => ({ ...f, assigned_to: val }))}
               options={users.map((u) => ({
                 value: String(u.id),
-                label: `${u.full_name} · ${memberLabel(u)}`,
+                label: u.full_name,
               }))}
             />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-neutral-700">
+              <label className="block text-xs font-semibold text-black">
                 Follow-up date / time
               </label>
               <input
@@ -351,7 +347,7 @@ export default function NewLeadPage() {
               onChange={(v) => setForm((f) => ({ ...f, timeline: v }))}
             />
             <div>
-              <label className="block text-xs font-semibold text-neutral-700">Remarks</label>
+              <label className="block text-xs font-semibold text-black">Remarks</label>
               <textarea
                 rows={4}
                 value={form.notes}
@@ -404,7 +400,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-neutral-700">{label}</label>
+      <label className="block text-xs font-semibold text-black">{label}</label>
       <input
         type={type}
         required={required}

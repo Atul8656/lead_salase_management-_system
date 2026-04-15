@@ -8,10 +8,6 @@ import type { User } from "@/lib/types";
 import { formatAppDateTime } from "@/lib/formatDate";
 import { CustomSelect } from "@/components/CustomSelect";
 
-function displayMemberId(u: User): string {
-  return u.member_id ?? `M${String(u.id).padStart(3, "0")}`;
-}
-
 const ROLE_OPTIONS = [
   { value: "admin", label: "Admin" },
   { value: "manager", label: "Manager" },
@@ -161,7 +157,7 @@ export default function TeamMemberProfilePage() {
           className="space-y-4 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
         >
           <div>
-            <label className="block text-xs font-semibold text-neutral-700">Full name *</label>
+            <label className="block text-xs font-semibold text-black">Full name *</label>
             <input
               required
               value={form.full_name}
@@ -170,7 +166,7 @@ export default function TeamMemberProfilePage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-neutral-700">Email *</label>
+            <label className="block text-xs font-semibold text-black">Email *</label>
             <input
               type="email"
               required
@@ -180,7 +176,7 @@ export default function TeamMemberProfilePage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-neutral-700">Phone</label>
+            <label className="block text-xs font-semibold text-black">Phone</label>
             <input
               value={form.phone}
               onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}

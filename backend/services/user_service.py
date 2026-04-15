@@ -28,17 +28,6 @@ def get_user_by_email(db: Session, email: str):
     )
 
 
-def get_user_by_login_id(db: Session, login_id: str):
-    if not login_id:
-        return None
-    lid = login_id.strip()
-    return (
-        db.query(User)
-        .filter(func.lower(User.login_id) == func.lower(lid))
-        .first()
-    )
-
-
 def get_user_by_email_or_login(db: Session, username: str):
     return get_user_by_email(db, username.strip())
 
@@ -105,11 +94,9 @@ def create_team_member(db: Session, body: MemberCreateIn) -> Tuple[User, str]:
     plain_pw = default_password_from_full_name(full_name)
     validate_password_policy(plain_pw)
     db_user = User(
-        login_id=None,
         email=em,
         full_name=full_name,
         phone=body.phone.strip(),
-        password_plain=None,
         hashed_password=hash_password(plain_pw),
         role=UserRole.SALES_AGENT,
     )
@@ -134,10 +121,8 @@ def register_new_member(db: Session, email: str, full_name: str) -> Tuple[User, 
     validate_password_policy(plain_pw)
 
     db_user = User(
-        login_id=None,
         email=em,
         full_name=full_name.strip(),
-        password_plain=None,
         hashed_password=hash_password(plain_pw),
         role=UserRole.SALES_AGENT,
     )
@@ -158,7 +143,10 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
         return None
 
     pw_in = password.strip() if password else ""
-    return user if verify_password(pw_in, user.hashed_password or "") else None
+    if verify_password(pw_in, user.hashed_password or ""):
+        return user
+
+    return None
 
 
 def verify_user_password(user: User, password: str) -> bool:
@@ -206,7 +194,6 @@ def update_current_user(db: Session, user: User, data: UserMeUpdate) -> User:
             raise HTTPException(
                 status_code=400, detail="Current password is incorrect"
             )
-        user.password_plain = None
         user.hashed_password = hash_password(data.new_password.strip())
 
     if "email" in data.model_fields_set and data.email is not None:

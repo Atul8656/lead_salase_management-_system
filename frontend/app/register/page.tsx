@@ -65,7 +65,7 @@ export default function RegisterPage() {
         </p>
         <form onSubmit={otpSent ? onVerifyOtp : onSendOtp} className="mt-8 space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-neutral-700">Email</label>
+            <label className="block text-xs font-semibold text-black">Email</label>
             <input
               type="email"
               required
@@ -76,7 +76,7 @@ export default function RegisterPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-neutral-700">Full name</label>
+            <label className="block text-xs font-semibold text-black">Full name</label>
             <input
               required
               value={fullName}
@@ -87,7 +87,7 @@ export default function RegisterPage() {
           </div>
           {otpSent && (
             <div>
-              <label className="block text-xs font-semibold text-neutral-700">OTP</label>
+              <label className="block text-xs font-semibold text-black">OTP</label>
               <input
                 required
                 value={otp}

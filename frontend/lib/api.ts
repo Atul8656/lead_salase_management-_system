@@ -205,7 +205,6 @@ export async function loginRequest(usernameOrEmail: string, password: string) {
 export interface UserRegisteredResponse {
   id: number;
   login_id: string | null;
-  member_id?: string;
   email: string;
   full_name: string;
   role: string;
@@ -247,6 +246,34 @@ export async function verifyOtpRequest(payload: {
 }): Promise<{ message: string }> {
   logApiBaseOnce();
   const res = await safeFetch(apiUrl("/api/auth/verify-otp"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ message: string }>;
+}
+
+export async function forgotPasswordSendOtpRequest(payload: {
+  email: string;
+}): Promise<{ message: string }> {
+  logApiBaseOnce();
+  const res = await safeFetch(apiUrl("/api/auth/forgot-password/send-otp"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ message: string }>;
+}
+
+export async function forgotPasswordResetRequest(payload: {
+  email: string;
+  otp: string;
+  new_password: string;
+}): Promise<{ message: string }> {
+  logApiBaseOnce();
+  const res = await safeFetch(apiUrl("/api/auth/forgot-password/reset"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

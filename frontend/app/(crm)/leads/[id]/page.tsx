@@ -552,7 +552,7 @@ export default function LeadDetailPage() {
               onChange={(v) => setEditForm((f) => ({ ...f, timeline: v }))}
             />
             <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold" style={{ color: "var(--foreground-muted)" }}>
+              <label className="block text-xs font-semibold text-black">
                 Description / requirements
               </label>
               <textarea
@@ -565,7 +565,7 @@ export default function LeadDetailPage() {
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold" style={{ color: "var(--foreground-muted)" }}>
+              <label className="block text-xs font-semibold text-black">
                 Follow-up date / time
               </label>
               <input
@@ -832,7 +832,7 @@ function EditField({
 }) {
   return (
     <div>
-      <label className="block text-xs font-semibold" style={{ color: "var(--foreground-muted)" }}>
+      <label className="block text-xs font-semibold text-black">
         {label}
       </label>
       <input
@@ -874,7 +874,7 @@ function ContactIconRow({
         {icon}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--foreground-muted)" }}>
+        <p className="text-[11px] font-semibold text-black">
           {label}
         </p>
         <div className="mt-1 text-sm break-words" style={{ color: empty ? "var(--foreground-muted)" : "var(--foreground)" }}>

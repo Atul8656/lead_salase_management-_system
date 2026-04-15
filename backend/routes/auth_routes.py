@@ -41,6 +41,18 @@ _forgot_otp_invalid_attempts: dict[str, int] = {}
 _forgot_otp_blocked_until: dict[str, float] = {}
 
 
+def _get_email_config() -> tuple[str, int, str, str]:
+    host = (settings.SMTP_HOST or "").strip()
+    port = int(settings.SMTP_PORT or 0)
+    user = (settings.SMTP_USER or "").strip()
+    password = (settings.SMTP_PASS or "").strip()
+    if password.lower() in {"your_app_password_here", "app_password_here"}:
+        password = ""
+    if not (host and port and user and password):
+        raise HTTPException(status_code=500, detail="Email service not configured")
+    return host, port, user, password
+
+
 class SendOtpIn(BaseModel):
     email: EmailStr
 
@@ -123,13 +135,7 @@ def _generate_random_password(length: int = 12) -> str:
 
 
 def _send_otp_email(email_to: str, otp: str) -> None:
-    host = (settings.EMAIL_HOST or "").strip()
-    port = int(settings.EMAIL_PORT or 0)
-    user = (settings.EMAIL_USER or "").strip()
-    password = (settings.EMAIL_PASS or "").strip()
-
-    if not (host and port and user and password):
-        raise HTTPException(status_code=500, detail="Email service not configured")
+    host, port, user, password = _get_email_config()
 
     msg = EmailMessage()
     msg["Subject"] = "Your OTP for registration"
@@ -153,18 +159,13 @@ def _send_otp_email(email_to: str, otp: str) -> None:
                 server.starttls(context=context)
                 server.login(user, password)
                 server.send_message(msg)
-    except Exception:
+    except Exception as e:
+        print(f"DEBUG: _send_otp_email error: {str(e)}")
         raise HTTPException(status_code=500, detail="Unable to send OTP email")
 
 
 def _send_credentials_email(email_to: str, generated_password: str) -> None:
-    host = (settings.EMAIL_HOST or "").strip()
-    port = int(settings.EMAIL_PORT or 0)
-    user = (settings.EMAIL_USER or "").strip()
-    password = (settings.EMAIL_PASS or "").strip()
-
-    if not (host and port and user and password):
-        raise HTTPException(status_code=500, detail="Email service not configured")
+    host, port, user, password = _get_email_config()
 
     msg = EmailMessage()
     msg["Subject"] = "Your account credentials"
@@ -188,18 +189,13 @@ def _send_credentials_email(email_to: str, generated_password: str) -> None:
                 server.starttls(context=context)
                 server.login(user, password)
                 server.send_message(msg)
-    except Exception:
+    except Exception as e:
+        print(f"DEBUG: _send_credentials_email error: {str(e)}")
         raise HTTPException(status_code=500, detail="Unable to send credentials email")
 
 
 def _send_forgot_password_otp_email(email_to: str, otp: str) -> None:
-    host = (settings.EMAIL_HOST or "").strip()
-    port = int(settings.EMAIL_PORT or 0)
-    user = (settings.EMAIL_USER or "").strip()
-    password = (settings.EMAIL_PASS or "").strip()
-
-    if not (host and port and user and password):
-        raise HTTPException(status_code=500, detail="Email service not configured")
+    host, port, user, password = _get_email_config()
 
     msg = EmailMessage()
     msg["Subject"] = "Your OTP for password reset"
@@ -223,7 +219,8 @@ def _send_forgot_password_otp_email(email_to: str, otp: str) -> None:
                 server.starttls(context=context)
                 server.login(user, password)
                 server.send_message(msg)
-    except Exception:
+    except Exception as e:
+        print(f"DEBUG: _send_forgot_password_otp_email error: {str(e)}")
         raise HTTPException(status_code=500, detail="Unable to send OTP email")
 
 
@@ -319,10 +316,8 @@ def verify_otp(body: VerifyOtpIn, db: Session = Depends(get_db)):
 
     random_password = _generate_random_password()
     user = User(
-        login_id=None,
         email=email,
         full_name=full_name,
-        password_plain=None,
         hashed_password=hash_password(random_password),
         role=UserRole.SALES_AGENT,
     )
@@ -331,9 +326,18 @@ def verify_otp(body: VerifyOtpIn, db: Session = Depends(get_db)):
     try:
         db.commit()
         db.refresh(user)
-    except SQLAlchemyError:
+    except SQLAlchemyError as e:
         db.rollback()
+        print(f"DEBUG: verify_otp DB error: {str(e)}")
         raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as e:
+        db.rollback()
+        print(f"DEBUG: verify_otp generic error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+
     finally:
         _otp_store.pop(email, None)
         _otp_invalid_attempts.pop(email, None)
@@ -402,7 +406,6 @@ def forgot_password_reset(body: ForgotPasswordResetIn, db: Session = Depends(get
         raise HTTPException(status_code=400, detail="Invalid or expired OTP")
 
     user_service.validate_password_policy(new_password)
-    user.password_plain = None
     user.hashed_password = hash_password(new_password)
     try:
         db.commit()

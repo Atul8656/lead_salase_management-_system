@@ -5,17 +5,12 @@ import { useRouter } from "next/navigation";
 import { usersApi } from "@/lib/api";
 import type { MemberCreatedResponse, User } from "@/lib/types";
 
-function displayMemberId(u: User): string {
-  return u.member_id ?? `M${String(u.id).padStart(3, "0")}`;
-}
-
 export default function TeamPage() {
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [me, setMe] = useState<User | null>(null);
   const [err, setErr] = useState("");
   const [modal, setModal] = useState(false);
-  const [previewId, setPreviewId] = useState("");
   const [saving, setSaving] = useState(false);
   const [created, setCreated] = useState<MemberCreatedResponse | null>(null);
   const [form, setForm] = useState({
@@ -48,12 +43,6 @@ export default function TeamPage() {
     setForm({ first_name: "", last_name: "", surname: "", email: "", phone: "" });
     setModal(true);
     setErr("");
-    try {
-      const n = await usersApi.nextMemberId();
-      setPreviewId(n.next_member_id);
-    } catch {
-      setPreviewId("—");
-    }
   }
 
   async function submitMember(e: React.FormEvent) {
@@ -107,6 +96,7 @@ export default function TeamPage() {
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-neutral-200 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+              <th className="px-6 py-3">ID</th>
               <th className="px-6 py-3">Name</th>
               <th className="px-6 py-3">Email</th>
               <th className="px-6 py-3">Mobile</th>
@@ -120,6 +110,7 @@ export default function TeamPage() {
                 className="cursor-pointer border-b border-neutral-100 transition hover:bg-neutral-100/80"
                 onClick={() => router.push(`/team/${u.id}`)}
               >
+                <td className="px-6 py-3 font-semibold text-neutral-900">{u.id}</td>
                 <td className="px-6 py-3 font-semibold text-neutral-900">{u.full_name}</td>
                 <td className="px-6 py-3 font-medium text-neutral-600">{u.email}</td>
                 <td className="px-6 py-3 font-medium text-neutral-600">{u.phone ?? "—"}</td>
@@ -163,7 +154,7 @@ export default function TeamPage() {
             ) : (
               <form onSubmit={submitMember} className="mt-4 space-y-3">
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700">First name *</label>
+                  <label className="block text-xs font-semibold text-black">First name *</label>
                   <input
                     required
                     value={form.first_name}
@@ -172,7 +163,7 @@ export default function TeamPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700">Last name *</label>
+                  <label className="block text-xs font-semibold text-black">Last name *</label>
                   <input
                     required
                     value={form.last_name}
@@ -181,7 +172,7 @@ export default function TeamPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700">Surname</label>
+                  <label className="block text-xs font-semibold text-black">Surname</label>
                   <input
                     value={form.surname}
                     onChange={(e) => setForm((f) => ({ ...f, surname: e.target.value }))}
@@ -190,7 +181,7 @@ export default function TeamPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700">Email *</label>
+                  <label className="block text-xs font-semibold text-black">Email *</label>
                   <input
                     type="email"
                     required
@@ -200,7 +191,7 @@ export default function TeamPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700">Mobile number *</label>
+                  <label className="block text-xs font-semibold text-black">Mobile number *</label>
                   <input
                     required
                     minLength={5}

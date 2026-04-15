@@ -44,7 +44,7 @@ export default function LoginPage() {
         </p>
         <form onSubmit={onSubmit} className="mt-8 space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-neutral-700">Email</label>
+            <label className="block text-xs font-semibold text-black">Email</label>
             <input
               type="email"
               required
@@ -56,7 +56,7 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-neutral-700">Password</label>
+            <label className="block text-xs font-semibold text-black">Password</label>
             <input
               type="password"
               required
@@ -79,6 +79,11 @@ export default function LoginPage() {
           >
             {loading ? "Signing in…" : "Sign in"}
           </button>
+          <p className="text-center text-sm font-medium text-neutral-600">
+            <Link href="/forgot-password" className="app-link">
+              Forgot password?
+            </Link>
+          </p>
         </form>
         <p className="mt-6 text-center text-sm font-medium text-neutral-600">
           No account?{" "}

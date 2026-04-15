@@ -333,12 +333,7 @@ export default function LeadsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-neutral-900">Leads</h2>
-          <p className="text-sm font-medium text-neutral-500">
-            {data.total} record{data.total !== 1 ? "s" : ""}
-            {activeFilterCount > 0
-              ? ` · ${activeFilterCount} filter${activeFilterCount !== 1 ? "s" : ""} active (AND; follow-up vs overdue uses OR when both on)`
-              : ""}
-          </p>
+
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="mr-1 flex rounded-xl border border-neutral-200 bg-neutral-100/80 p-0.5">

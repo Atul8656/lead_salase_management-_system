@@ -9,10 +9,6 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { formatAppDateTime } from "@/lib/formatDate";
 import LeadsPanelModal from "@/components/LeadsPanelModal";
 
-function memberLabel(u: { member_id?: string; id: number }) {
-  return u.member_id ?? `M${String(u.id).padStart(3, "0")}`;
-}
-
 type StatModal = null | "all" | "converted" | "followups_today" | "overdue";
 
 const MODAL_FETCH_LIMIT = 1000;
@@ -131,16 +127,7 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-neutral-900">Dashboard</h2>
-          {me && (
-            <p className="mt-1 text-sm font-medium text-neutral-600">
-              Signed in as <span className="font-semibold text-neutral-900">{me.full_name}</span>
-              <span className="text-neutral-500"> · {me.email}</span>
-              <span className="text-neutral-500"> · {memberLabel(me)}</span>
-            </p>
-          )}
-          <p className="mt-1 text-sm font-medium text-neutral-500">
-            Refreshes every 30s · pipeline-focused overview
-          </p>
+
         </div>
         <div className="flex flex-wrap gap-2">
           <button
