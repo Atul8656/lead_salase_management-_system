@@ -1,8 +1,16 @@
 import smtplib
 import ssl
 import anyio
+import socket
 from email.message import EmailMessage
 from core.config import settings
+
+# Force IPv4 to avoid "Network is unreachable" issues on some cloud providers
+class SMTP_v4(smtplib.SMTP):
+    address_family = socket.AF_INET
+
+class SMTP_SSL_v4(smtplib.SMTP_SSL):
+    address_family = socket.AF_INET
 
 def _send_email_sync(subject: str, recipients: list[str], html_content: str):
     user = (settings.SMTP_USER or "").strip()
@@ -24,14 +32,14 @@ def _send_email_sync(subject: str, recipients: list[str], html_content: str):
     last_error = None
     for port in ports_to_try:
         try:
-            print(f"DEBUG: Attempting to send email via {host}:{port}")
+            print(f"DEBUG: Attempting IPv4-only connection via {host}:{port}")
             if port == 465:
                 context = ssl.create_default_context()
-                with smtplib.SMTP_SSL(host, port, context=context, timeout=15) as server:
+                with SMTP_SSL_v4(host, port, context=context, timeout=20) as server:
                     server.login(user, password)
                     server.send_message(msg)
             else:
-                with smtplib.SMTP(host, port, timeout=15) as server:
+                with SMTP_v4(host, port, timeout=20) as server:
                     server.starttls(context=ssl.create_default_context())
                     server.login(user, password)
                     server.send_message(msg)
