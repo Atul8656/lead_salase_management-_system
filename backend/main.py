@@ -40,10 +40,20 @@ app.include_router(todo_routes.router, prefix="/api/todos", tags=["todos"])
 def startup_create_tables() -> None:
     init_db()
 
+@app.get("/health")
+async def health_check():
+    return {
+        "success": True,
+        "message": "Server is alive"
+    }
+
 @app.api_route("/", methods=["GET", "HEAD"])
 async def root():
     return {"message": "SALENLO API", "docs": "/docs"}
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    import os
+    # Use PORT from environment (for Render) or default to 8000
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
