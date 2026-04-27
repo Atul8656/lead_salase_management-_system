@@ -5,9 +5,9 @@ import enum
 from db.connection import Base
 
 class UserRole(enum.Enum):
-    ADMIN = "admin"
-    SALES_AGENT = "sales_agent"
-    MANAGER = "manager"
+    ADMIN = "ADMIN"
+    SALES_AGENT = "SALES_AGENT"
+    MANAGER = "MANAGER"
 
 
 from sqlalchemy.dialects.postgresql import ENUM as PG_ENUM

@@ -145,6 +145,7 @@ export default function LeadDetailPage() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [remarks, setRemarks] = useState<LeadRemark[]>([]);
   const [remarkDraft, setRemarkDraft] = useState("");
+  const [showAuto, setShowAuto] = useState(false);
   const [savingRemark, setSavingRemark] = useState(false);
   const [err, setErr] = useState("");
   const [users, setUsers] = useState<User[]>([]);
@@ -235,7 +236,11 @@ export default function LeadDetailPage() {
       at: remark.created_at,
       remark,
     }));
-    const a: TimelineEntry[] = activitiesSansRemarkEcho.map((activity) => ({
+    
+    // Auto-activities only if toggle is ON
+    const filteredA = showAuto ? activitiesSansRemarkEcho : [];
+    
+    const a: TimelineEntry[] = filteredA.map((activity) => ({
       kind: "activity",
       key: `a-${activity.id}`,
       at: activity.created_at,
@@ -244,7 +249,7 @@ export default function LeadDetailPage() {
     return [...r, ...a].sort(
       (p, q) => new Date(q.at).getTime() - new Date(p.at).getTime()
     );
-  }, [remarks, activitiesSansRemarkEcho]);
+  }, [remarks, activitiesSansRemarkEcho, showAuto]);
 
   async function submitRemark() {
     if (!lead || !remarkDraft.trim()) return;
@@ -681,12 +686,35 @@ export default function LeadDetailPage() {
             style={{ borderRadius: "16px" }}
           >
             <div className="border-b px-5 py-4 sm:px-6" style={{ borderColor: "var(--border)" }}>
-              <h2 className="text-base font-semibold" style={{ color: "var(--foreground)" }}>
-                Activity
-              </h2>
-              <p className="mt-0.5 text-xs" style={{ color: "var(--foreground-muted)" }}>
-                Remarks and updates in one timeline
-              </p>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-semibold" style={{ color: "var(--foreground)" }}>
+                    Activity
+                  </h2>
+                  <p className="mt-0.5 text-xs" style={{ color: "var(--foreground-muted)" }}>
+                    Remarks and updates
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                    All Remarks
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowAuto(!showAuto)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      showAuto ? "bg-neutral-900" : "bg-neutral-200"
+                    }`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        showAuto ? "translate-x-4" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
@@ -697,9 +725,9 @@ export default function LeadDetailPage() {
               ) : (
                 timeline.map((item) =>
                   item.kind === "remark" ? (
-                    <div key={item.key} className="flex gap-3">
+                    <div key={item.key} className="flex gap-2.5">
                       <div
-                        className="flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                        className="flex size-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
                         style={{
                           background: "var(--accent-subtle)",
                           color: "var(--accent)",
@@ -708,22 +736,19 @@ export default function LeadDetailPage() {
                         {userInitials(item.remark.user_name || "U")}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-baseline justify-between gap-2">
-                          <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+                        <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+                          <span className="text-[13px] font-bold" style={{ color: "var(--foreground)" }}>
                             {item.remark.user_name || "Team"}
                           </span>
-                          <time className="text-[11px] tabular-nums" style={{ color: "var(--foreground-muted)" }}>
+                          <time className="text-[10px] tabular-nums" style={{ color: "var(--foreground-muted)" }}>
                             {formatRemarkTimestamp(item.remark.created_at)}
                           </time>
                         </div>
-                        <p className="mt-1 text-[11px] font-medium uppercase tracking-wide" style={{ color: "var(--accent)" }}>
-                          Remark
-                        </p>
                         <div
-                          className="mt-2 rounded-2xl rounded-tl-md px-4 py-3 text-sm leading-relaxed shadow-sm"
+                          className="mt-1.5 rounded-2xl rounded-tl-sm px-3.5 py-2 text-sm leading-relaxed shadow-sm whitespace-pre-wrap break-words"
                           style={{
                             background: "var(--card)",
-                            border: "1px solid color-mix(in srgb, var(--border) 70%, transparent)",
+                            border: "1px solid color-mix(in srgb, var(--border) 60%, transparent)",
                             color: "var(--foreground)",
                           }}
                         >
@@ -732,9 +757,9 @@ export default function LeadDetailPage() {
                       </div>
                     </div>
                   ) : (
-                    <div key={item.key} className="flex gap-3">
+                    <div key={item.key} className="flex gap-2.5">
                       <div
-                        className="flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                        className="flex size-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
                         style={{
                           background: "var(--color-background-info)",
                           color: "var(--color-text-info)",
@@ -743,20 +768,17 @@ export default function LeadDetailPage() {
                         {userInitials(item.activity.user_name || "U")}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-baseline justify-between gap-2">
-                          <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
-                            {item.activity.user_name || "Team Member"}
+                        <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+                          <span className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
+                            {item.activity.user_name || "Team"}
                           </span>
-                          <time className="text-[11px] tabular-nums" style={{ color: "var(--foreground-muted)" }}>
+                          <time className="text-[10px] tabular-nums" style={{ color: "var(--foreground-muted)" }}>
                             {formatRemarkTimestamp(item.activity.created_at)}
                           </time>
                         </div>
-                        <p className="mt-1 text-xs" style={{ color: "var(--foreground-muted)" }}>
-                          {formatActivityLabel(item.activity.action)}
-                        </p>
                         {item.activity.details ? (
                           <div
-                            className="mt-2 rounded-xl px-3 py-2.5 font-mono text-[11px] leading-relaxed whitespace-pre-wrap"
+                            className="mt-1.5 rounded-xl px-3 py-2 font-mono text-[11px] leading-relaxed whitespace-pre-wrap break-words"
                             style={{
                               background: "var(--color-background-secondary)",
                               color: "var(--foreground)",
@@ -764,7 +786,11 @@ export default function LeadDetailPage() {
                           >
                             {formatActivityDetail(item.activity.details)}
                           </div>
-                        ) : null}
+                        ) : (
+                          <p className="mt-0.5 text-xs font-medium" style={{ color: "var(--foreground-muted)" }}>
+                            {formatActivityLabel(item.activity.action)}
+                          </p>
+                        )}
                       </div>
                     </div>
                   )

@@ -65,8 +65,8 @@ export default function NewLeadPage() {
 
   function validateStep(s: number): boolean {
     if (s === 0) {
-      if (!form.name.trim() || !form.phone.trim()) {
-        setErr("Name and phone are required.");
+      if (!form.name.trim()) {
+        setErr("Name is required.");
         return false;
       }
     }
@@ -114,7 +114,7 @@ export default function NewLeadPage() {
       const body: Record<string, unknown> = {
         name: form.name.trim(),
         email: form.email || null,
-        phone: form.phone.trim(),
+        phone: form.phone.trim() || null,
         company_name: form.company_name || null,
         website_url: form.website_url || null,
         linkedin_url: form.linkedin_url || null,
@@ -152,7 +152,7 @@ export default function NewLeadPage() {
         </Link>
         <h2 className="mt-4 text-2xl font-bold text-neutral-900">Add lead</h2>
         <p className="text-sm font-medium text-neutral-500">
-          Step {step + 1} of {STEPS.length}: {STEPS[step]} · phone is required. Interested
+          Step {step + 1} of {STEPS.length}: {STEPS[step]} · name is required. Interested
           needs follow-up; converted needs payment.
         </p>
         <div className="mt-4 flex gap-2">
@@ -184,10 +184,9 @@ export default function NewLeadPage() {
               required
             />
             <Field
-              label="Phone *"
+              label="Phone"
               value={form.phone}
               onChange={(v) => setForm((f) => ({ ...f, phone: v }))}
-              required
             />
             <Field
               label="Email"

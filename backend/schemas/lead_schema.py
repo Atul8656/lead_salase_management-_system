@@ -52,9 +52,9 @@ class LeadBase(BaseModel):
 
 
 class LeadCreate(LeadBase):
-    """assigned_to defaults to creator when omitted. Phone is required."""
+    """assigned_to defaults to creator when omitted."""
 
-    phone: str = Field(..., min_length=5, max_length=40)
+    phone: Optional[str] = None
     assigned_to: Optional[int] = None
 
 class LeadUpdate(BaseModel):

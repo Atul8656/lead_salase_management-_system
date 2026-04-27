@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Lead, User } from "@/lib/types";
 import { formatAppDateTime } from "@/lib/formatDate";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -14,6 +15,24 @@ export function assigneeLabel(users: User[], assignedTo: number | null): string 
   if (assignedTo == null) return "—";
   const u = users.find((x) => x.id === assignedTo);
   return u ? u.full_name : "Unknown";
+}
+
+function IconEye({ className = "size-4" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
 }
 
 const leadLinkClass =
@@ -30,6 +49,8 @@ export default function LeadsDataTable({
   users,
   emptyMessage = "No leads match these filters.",
 }: Props) {
+  const router = useRouter();
+
   if (items.length === 0) {
     return (
       <p className="px-4 py-8 text-center text-sm font-medium text-neutral-500">{emptyMessage}</p>
@@ -47,7 +68,8 @@ export default function LeadsDataTable({
           return (
             <div 
               key={l.id} 
-              className={`rounded-2xl border border-neutral-200 p-4 shadow-sm transition-all active:scale-[0.98] ${rowBg}`}
+              onClick={() => router.push(`/leads/${l.id}`)}
+              className={`cursor-pointer rounded-2xl border border-neutral-200 p-4 shadow-sm transition-all active:scale-[0.98] ${rowBg}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
@@ -140,7 +162,8 @@ export default function LeadsDataTable({
             return (
               <tr
                 key={l.id}
-                className={`transition-colors hover:bg-neutral-50/90 ${rowBg}`}
+                onClick={() => router.push(`/leads/${l.id}`)}
+                className={`group cursor-pointer transition-colors hover:bg-neutral-50/90 ${rowBg}`}
               >
                 <td className="px-4 py-4 align-top">
                   <Link href={`/leads/${l.id}`} className={leadLinkClass}>
@@ -179,9 +202,15 @@ export default function LeadsDataTable({
                   </div>
                 </td>
                 <td className="px-4 py-4 align-top text-right">
-                  <Link href={`/leads/${l.id}`} className={`${leadLinkClass} text-sm`}>
-                    Open
-                  </Link>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      title="View Lead"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-400 shadow-sm transition-all group-hover:border-neutral-900 group-hover:bg-neutral-900 group-hover:text-white"
+                    >
+                      <IconEye className="size-4" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             );

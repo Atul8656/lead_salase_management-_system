@@ -35,7 +35,7 @@ def _ensure_postgres_enums() -> None:
         DO $$
         BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'userrole') THEN
-                CREATE TYPE userrole AS ENUM ('admin', 'sales_agent', 'manager');
+                CREATE TYPE userrole AS ENUM ('ADMIN', 'SALES_AGENT', 'MANAGER');
             END IF;
         END
         $$;

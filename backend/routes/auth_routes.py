@@ -264,7 +264,7 @@ def _generate_otp() -> str:
     import secrets
     return f"{secrets.randbelow(1_000_000):06d}"
 
-@router.post("/forgot-password")
+@router.post("/forgot-password/send-otp")
 async def forgot_password_send_otp(body: ForgotPasswordSendOtpIn, db: Session = Depends(get_db)):
     email = body.email.lower().strip()
     user = user_service.get_user_by_email(db, email)
@@ -287,30 +287,8 @@ async def forgot_password_send_otp(body: ForgotPasswordSendOtpIn, db: Session = 
         print(f"ERROR: Forgot password OTP send failure: {str(e)}")
         raise HTTPException(status_code=500, detail="Unable to send OTP email")
 
-@router.post("/verify-otp")
-async def verify_otp(body: VerifyOtpIn):
-    email = body.email.lower().strip()
-    provided_otp = body.otp.strip()
-    
-    otp_data = _forgot_otp_store.get(email)
-    if not otp_data:
-        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
-    
-    if time.time() > otp_data["expires_at"]:
-        _forgot_otp_store.pop(email, None)
-        raise HTTPException(status_code=400, detail="OTP has expired")
-    
-    if otp_data["attempts"] >= _FORGOT_OTP_MAX_ATTEMPTS:
-        _forgot_otp_store.pop(email, None)
-        raise HTTPException(status_code=429, detail="Too many invalid attempts. Please request a new OTP.")
-    
-    if otp_data["otp"] != provided_otp:
-        otp_data["attempts"] += 1
-        raise HTTPException(status_code=400, detail="Invalid OTP")
-    
-    return {"message": "OTP verified successfully"}
 
-@router.post("/reset-password")
+@router.post("/forgot-password/reset")
 async def forgot_password_reset(body: ForgotPasswordResetIn, db: Session = Depends(get_db)):
     email = body.email.lower().strip()
     provided_otp = body.otp.strip()

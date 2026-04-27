@@ -172,8 +172,8 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
     <AuthUserProvider value={{ user: me, loading: meLoading, onUserUpdated: refreshMe }}>
       <div className="flex h-screen w-full bg-white text-neutral-900 overflow-hidden">
         <aside className="hidden w-60 shrink-0 flex-col border-r border-neutral-200 bg-white md:flex">
-          <div className="flex items-center gap-3 p-6">
-            <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg border border-neutral-200 bg-white text-neutral-900">
+          <Link href="/dashboard" className="flex items-center gap-3 p-6 transition-opacity hover:opacity-80">
+            <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg border border-neutral-200 bg-white text-neutral-900 shadow-sm">
               <Image
                 src="/brand-mark.png"
                 alt=""
@@ -195,7 +195,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
                 Sales & leads
               </p>
             </div>
-          </div>
+          </Link>
           <nav className="flex-1 space-y-1 px-3">
             {nav.map((item) => {
               const active = isNavActive(path, item.href);
@@ -222,7 +222,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-neutral-200 bg-white px-3 sm:px-4 md:px-8">
             <div className="flex min-w-0 items-center gap-2 md:gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-neutral-200 md:hidden">
+              <Link href="/dashboard" className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-neutral-200 shadow-sm md:hidden">
                 <Image
                   src="/brand-mark.png"
                   alt=""
@@ -231,7 +231,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
                   className="max-h-full max-w-full object-contain"
                   style={{ width: "auto", height: "auto" }}
                 />
-              </div>
+              </Link>
               <div className="min-w-0">
                 <p className="truncate text-xs font-bold uppercase tracking-wide text-neutral-400 md:hidden">
                   SALENLO

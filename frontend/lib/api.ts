@@ -43,8 +43,13 @@ function buildLeadQuery(params?: LeadListParams): string {
   return qs ? `?${qs}` : "";
 }
 
-/** Empty = relative `/api/...` (Next.js rewrite to BACKEND_PROXY_URL in dev/deploy). */
-const DEFAULT_API_BASE = "";
+/** Localhost fallback if environment variables are missing. */
+const DEFAULT_API_BASE =
+  typeof window !== "undefined" &&
+  (window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1")
+    ? "http://localhost:8000"
+    : "https://lead-salal-management.onrender.com";
 
 /**
  * Resolve API origin for browser fetch:
@@ -54,8 +59,11 @@ const DEFAULT_API_BASE = "";
  */
 function getApiBase(): string {
   const raw =
-    process.env.NEXT_PUBLIC_API_URL?.trim() || process.env.REACT_APP_API_URL?.trim();
-  if (!raw || raw === "/") return DEFAULT_API_BASE.replace(/\/$/, "");
+    process.env.NEXT_PUBLIC_API_URL?.trim() || 
+    process.env.REACT_APP_API_URL?.trim() || 
+    DEFAULT_API_BASE;
+  
+  // Strip trailing slash
   return raw.replace(/\/$/, "");
 }
 
