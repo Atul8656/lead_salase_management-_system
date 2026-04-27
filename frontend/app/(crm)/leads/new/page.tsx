@@ -6,6 +6,7 @@ import Link from "next/link";
 import { leadsApi, usersApi } from "@/lib/api";
 import type { LeadPriority, LeadStatus, LeadType, User } from "@/lib/types";
 import { CustomSelect } from "@/components/CustomSelect";
+import { SourceSelect } from "@/components/SourceSelect";
 
 const STATUSES: LeadStatus[] = [
   "new",
@@ -234,17 +235,10 @@ export default function NewLeadPage() {
         {step === 1 && (
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-            <CustomSelect
+            <SourceSelect
               label="Source"
               value={form.source}
               onChange={(val) => setForm((f) => ({ ...f, source: val }))}
-              options={[
-                { value: "", label: "Select…" },
-                { value: "facebook", label: "Facebook" },
-                { value: "website", label: "Website" },
-                { value: "referral", label: "Referral" },
-                { value: "other", label: "Other" },
-              ]}
             />
             </div>
             <div>

@@ -34,9 +34,11 @@ def startup_create_tables() -> None:
 
 @app.get("/health")
 async def health_check():
+    from datetime import datetime
     return {
-        "success": True,
-        "message": "Server is alive"
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "service": "SALENLO API"
     }
 
 @app.api_route("/", methods=["GET", "HEAD"])

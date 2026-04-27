@@ -12,6 +12,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { PriorityBadge } from "@/components/PriorityBadge";
 import { coerceLeadPriority } from "@/lib/leadNormalize";
 import { CustomSelect } from "@/components/CustomSelect";
+import { SourceSelect } from "@/components/SourceSelect";
 import { FollowUpBadge } from "@/components/FollowUpBadge";
 import { getFollowUpStatus } from "@/lib/formatDate";
 import {
@@ -494,11 +495,13 @@ export default function LeadDetailPage() {
               value={editForm.location}
               onChange={(v) => setEditForm((f) => ({ ...f, location: v }))}
             />
-            <EditField
+            <div>
+            <SourceSelect
               label="Source"
               value={editForm.source}
-              onChange={(v) => setEditForm((f) => ({ ...f, source: v }))}
+              onChange={(val) => setEditForm((f) => ({ ...f, source: val }))}
             />
+            </div>
             <div>
             <CustomSelect
               label="Lead type"
