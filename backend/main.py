@@ -11,9 +11,9 @@ app = FastAPI(title="SALENLO API", redirect_slashes=False)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "https://salenlo.netlify.app",
         "http://localhost:3000",
         "http://localhost:8000",
-        "https://lead-salal-management.onrender.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
