@@ -46,7 +46,24 @@ def _ensure_postgres_enums() -> None:
             conn.execute(text(stmt))
 
 
+def _fix_lowercase_enums() -> None:
+    """Update any lowercase enum values in the database to uppercase."""
+    from db.connection import SessionLocal
+    with SessionLocal() as db:
+        try:
+            # We use raw SQL to update values without triggering SQLAlchemy's enum validation
+            # casting role to text to safely compare with lowercase strings
+            db.execute(text("UPDATE users SET role = 'ADMIN' WHERE LOWER(role::text) = 'admin'"))
+            db.execute(text("UPDATE users SET role = 'MANAGER' WHERE LOWER(role::text) = 'manager'"))
+            db.execute(text("UPDATE users SET role = 'SALES_AGENT' WHERE LOWER(role::text) = 'sales_agent'"))
+            db.commit()
+        except Exception as e:
+            print(f"Note: Could not run enum fix (might be expected if table doesn't exist yet): {e}")
+            db.rollback()
+
+
 def init_db() -> None:
     """Initialize DB objects required by SQLAlchemy models."""
     _ensure_postgres_enums()
     Base.metadata.create_all(bind=engine)
+    _fix_lowercase_enums()

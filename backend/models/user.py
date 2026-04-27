@@ -12,6 +12,39 @@ class UserRole(enum.Enum):
 
 from sqlalchemy.dialects.postgresql import ENUM as PG_ENUM
 
+class UserRoleColumn(TypeDecorator):
+    """Normalize DB userrole (lowercase vs uppercase) for PostgreSQL enums."""
+
+    impl = String(32)
+    cache_ok = True
+
+    def bind_expression(self, bindvalue):
+        return cast(bindvalue, PG_ENUM(name="userrole", create_type=False))
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if isinstance(value, UserRole):
+            return value.value.upper()
+        return str(value).strip().upper()
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        if isinstance(value, UserRole):
+            return value
+        s = str(value).strip().upper()
+        try:
+            return UserRole(s)
+        except ValueError:
+            # Fallback for common mismatches
+            if s == "ADMIN": return UserRole.ADMIN
+            if s == "MANAGER": return UserRole.MANAGER
+            if s == "SALES_AGENT": return UserRole.SALES_AGENT
+            raise ValueError(f"Unknown user role in database: {value!r}")
+
+from sqlalchemy import cast
+
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -21,15 +54,7 @@ class User(Base):
     phone = Column(String(64), nullable=True)
     avatar_url = Column(String(1024), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=True)
-    role = Column(
-        PG_ENUM(
-            UserRole,
-            name="userrole",
-            create_type=False,
-            values_callable=lambda enum_cls: [member.value for member in enum_cls],
-        ),
-        default=UserRole.SALES_AGENT,
-    )
+    role = Column(UserRoleColumn(), default=UserRole.SALES_AGENT)
     is_active = Column(Boolean, default=True)
 
 
