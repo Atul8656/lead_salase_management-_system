@@ -1,4 +1,4 @@
-from sqlalchemy import text
+from sqlalchemy import text, inspect
 
 from db.connection import Base, SessionLocal, engine, get_db
 
@@ -62,8 +62,40 @@ def _fix_lowercase_enums() -> None:
             db.rollback()
 
 
+def _verify_and_add_missing_columns() -> None:
+    """Verify existing tables and add any missing columns defined in the models."""
+    try:
+        inspector = inspect(engine)
+        db_tables = inspector.get_table_names()
+        
+        with engine.begin() as conn:
+            for table_name, table in Base.metadata.tables.items():
+                if table_name not in db_tables:
+                    continue  # Table doesn't exist yet, create_all will handle it
+                
+                db_columns = [col['name'] for col in inspector.get_columns(table_name)]
+                for column in table.columns:
+                    if column.name not in db_columns:
+                        try:
+                            # Generate ALTER TABLE statement
+                            col_type = column.type.compile(dialect=engine.dialect)
+                            stmt = f"ALTER TABLE {table_name} ADD COLUMN {column.name} {col_type}"
+                            conn.execute(text(stmt))
+                            print(f"Auto-added missing column '{column.name}' to table '{table_name}'")
+                        except Exception as e:
+                            print(f"Error auto-adding column '{column.name}' to '{table_name}': {e}")
+    except Exception as e:
+        print(f"Error during schema verification: {e}")
+
+
 def init_db() -> None:
     """Initialize DB objects required by SQLAlchemy models."""
-    _ensure_postgres_enums()
+    if engine.dialect.name == "postgresql":
+        _ensure_postgres_enums()
     Base.metadata.create_all(bind=engine)
-    _fix_lowercase_enums()
+    
+    # Auto-add any missing columns
+    _verify_and_add_missing_columns()
+    
+    if engine.dialect.name == "postgresql":
+        _fix_lowercase_enums()

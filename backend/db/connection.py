@@ -4,7 +4,9 @@ from core.config import settings
 
 # Supabase and most cloud Postgres require TLS
 _connect_args = {}
-if "supabase" in (settings.DATABASE_URL or "").lower() or "sslmode=require" in (settings.DATABASE_URL or ""):
+if settings.sqlalchemy_database_url.startswith("sqlite"):
+    _connect_args["check_same_thread"] = False
+elif "supabase" in (settings.DATABASE_URL or "").lower() or "sslmode=require" in (settings.DATABASE_URL or ""):
     _connect_args["sslmode"] = "require"
     # Supabase pooler (pgbouncer transaction mode) is not compatible with psycopg prepared statements.
     _connect_args["prepare_threshold"] = None

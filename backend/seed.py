@@ -13,10 +13,8 @@ def seed_data():
         if not admin:
             print("Seeding admin user...")
             admin = User(
-                login_id="admin",
                 email="admin@crm.com",
                 full_name="System Admin",
-                password_plain=None,
                 hashed_password=hash_password("admin123"),
                 role=UserRole.ADMIN,
             )
@@ -24,31 +22,35 @@ def seed_data():
             db.commit()
             db.refresh(admin)
         else:
-            if not admin.login_id:
-                admin.login_id = "admin"
             if not admin.hashed_password:
-                admin.password_plain = None
                 admin.hashed_password = hash_password("admin123")
+            db.commit()
+
+        atul = db.query(User).filter(User.email == "atulbaraiya0@gmail.com").first()
+        if not atul:
+            print("Seeding Atul's user...")
+            atul = User(
+                email="atulbaraiya0@gmail.com",
+                full_name="Atul Baraiya",
+                hashed_password=hash_password("Atul@123"),
+                role=UserRole.ADMIN,
+            )
+            db.add(atul)
             db.commit()
 
         agent = db.query(User).filter(User.email == "agent@crm.com").first()
         if not agent:
             print("Seeding agent...")
             agent = User(
-                login_id="agent",
                 email="agent@crm.com",
                 full_name="Sales Agent 1",
-                password_plain=None,
                 hashed_password=hash_password("agent123"),
                 role=UserRole.SALES_AGENT,
             )
             db.add(agent)
             db.commit()
         else:
-            if not agent.login_id:
-                agent.login_id = "agent"
             if not agent.hashed_password:
-                agent.password_plain = None
                 agent.hashed_password = hash_password("agent123")
             db.commit()
 
@@ -78,8 +80,10 @@ def seed_data():
             db.commit()
 
         print("Seeding completed successfully.")
-    except Exception:
-        print("Error seeding data.")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"Error seeding data: {e}")
     finally:
         db.close()
 

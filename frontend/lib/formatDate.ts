@@ -13,11 +13,24 @@ const MONTHS = [
   "December",
 ];
 
+export function parseBackendDate(iso: string | Date | null | undefined): Date | null {
+  if (iso == null || iso === "") return null;
+  if (iso instanceof Date) return iso;
+  let str = iso;
+  // If the backend returned a naive datetime string without timezone (e.g. "2026-05-17T10:00:25"),
+  // we must append "Z" to force the browser to treat it as UTC.
+  if (!str.endsWith("Z") && !str.match(/[+-]\d{2}:\d{2}$/) && str.includes("T")) {
+    str += "Z";
+  }
+  const d = new Date(str);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
+
 /** e.g. 13 April 2026 4:40 PM (12-hour, local timezone, single space before time) */
 export function formatAppDateTime(iso: string | Date | null | undefined): string {
-  if (iso == null || iso === "") return "—";
-  const d = typeof iso === "string" ? new Date(iso) : iso;
-  if (Number.isNaN(d.getTime())) return "—";
+  const d = parseBackendDate(iso);
+  if (!d) return "—";
   const day = d.getDate();
   const month = MONTHS[d.getMonth()];
   const year = d.getFullYear();
@@ -77,8 +90,8 @@ export function getFollowUpStatus(
 ): FollowUpStatus | null {
   if (!iso || leadStatus === "converted" || leadStatus === "lost") return null;
   
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
+  const d = parseBackendDate(iso);
+  if (!d) return null;
 
   // Compare YYYY-MM-DD strings to ignore time
   const p = (n: number) => String(n).padStart(2, "0");

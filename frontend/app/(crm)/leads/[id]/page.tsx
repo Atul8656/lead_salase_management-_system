@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { leadsApi, usersApi } from "@/lib/api";
 import type { ActivityItem, Lead, LeadPriority, LeadRemark, LeadStatus, LeadType, User } from "@/lib/types";
 import { formatActivityDetail } from "@/lib/formatActivityDetail";
-import { formatRemarkTimestamp } from "@/lib/formatDate";
+import { formatRemarkTimestamp, parseBackendDate } from "@/lib/formatDate";
 import { userInitials } from "@/lib/userDisplay";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PriorityBadge } from "@/components/PriorityBadge";
@@ -247,9 +247,11 @@ export default function LeadDetailPage() {
       at: activity.created_at,
       activity,
     }));
-    return [...r, ...a].sort(
-      (p, q) => new Date(q.at).getTime() - new Date(p.at).getTime()
-    );
+    return [...r, ...a].sort((p, q) => {
+      const qDate = parseBackendDate(q.at) || new Date(0);
+      const pDate = parseBackendDate(p.at) || new Date(0);
+      return qDate.getTime() - pDate.getTime();
+    });
   }, [remarks, activitiesSansRemarkEcho, showAuto]);
 
   async function submitRemark() {
